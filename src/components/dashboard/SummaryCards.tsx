@@ -249,11 +249,13 @@ export function PendingApprovalsCard() {
     let alive = true;
     const load = async () => {
       try {
-        const [{ corrections, leave }, team] = await Promise.all([fetchApprovals(), fetchTeam()]);
+        const [{ corrections, leave, pay }, team] = await Promise.all([fetchApprovals(), fetchTeam()]);
         const name = (id: string) => team.find((p) => p.id === id)?.full_name ?? 'Someone';
         const list = [
           ...corrections.filter((c) => c.status === 'pending').map((c) => ({ id: c.id, who: name(c.user_id), what: c.entry_id ? 'Time fix' : 'Missing shift', when: c.created_at })),
           ...leave.filter((l) => l.status === 'pending').map((l) => ({ id: l.id, who: name(l.user_id), what: LEAVE_LABEL[l.type], when: l.created_at })),
+          // pay rates are the owner's call, so only the owner counts them as waiting
+          ...(profile.role === 'owner' ? pay.filter((x) => x.status === 'pending').map((x) => ({ id: x.id, who: name(x.user_id), what: 'Pay rate change', when: x.created_at })) : []),
         ].sort((x, y) => x.when.localeCompare(y.when));
         if (alive) setRows(list);
       } catch { if (alive) setRows([]); }

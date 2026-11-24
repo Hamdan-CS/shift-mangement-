@@ -65,7 +65,7 @@ export function formatWorked(opts: {
     const d = addDays(from, i);
     const w = byDay.get(d);
     const label = week ? WEEKDAY(d) : WEEKDAY(d, false);
-    if (w) lines.push(`- *${label}:* ${clock12(w.first_in, timeZone)} – ${w.last_out ? clock12(w.last_out, timeZone) : 'now'} · ${formatHours(w.minutes)} · ${money((rate * w.minutes) / 60)}`);
+    if (w) lines.push(`- *${label}:* ${clock12(w.first_in, timeZone)} – ${w.last_out ? clock12(w.last_out, timeZone) : 'now'} · ${formatHours(w.minutes)} · ${money((rate * w.minutes) / 60)}${w.approved_by ? ` _(approved by ${w.approved_by})_` : ''}`);
     else if (week) lines.push(`- *${label}:* Not worked`);
   }
   if (!week && days.length === 0) lines.push('No hours in this period.');

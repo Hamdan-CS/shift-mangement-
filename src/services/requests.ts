@@ -3,7 +3,7 @@
  * an approved correction to time_entries and reverts it on Undo (migration 008).
  */
 import { supabase, demoAuth } from '@/integrations/supabase/client';
-import type { Correction, LeaveRequest, LeaveType, RequestStatus } from '@/types';
+import type { Correction, LeaveRequest, LeaveType, PayRequest, RequestStatus } from '@/types';
 import { DEMO_PROFILES, demoEntries, demoSession } from './demo';
 import { demoNotifications } from './api';
 
@@ -14,13 +14,14 @@ function requestError(e: { code?: string; message: string }): RequestError {
   if (/max_length/.test(e.message)) return new RequestError('That is too long for one shift or one leave request.');
   if (/leave_end_after_start/.test(e.message)) return new RequestError('The last day must be on or after the first day.');
   if (/reason/.test(e.message) && e.code === '23514') return new RequestError('Please write a short reason (at least 3 letters).');
+  if (/profile_requests_one_pending/.test(e.message)) return new RequestError('You already asked for a new rate. Wait for the answer, or withdraw it first.');
   if (/corrections_one_pending/.test(e.message)) return new RequestError('You already asked to fix this shift. Wait for the answer.');
   if (['42501', '23514', '23P01', '23503'].includes(e.code ?? '')) return new RequestError(e.message);
   return new RequestError('Could not send. Check your connection and try again.');
 }
 
 /* ---------------- demo store (dev only) ---------------- */
-const CK = 'shiftclock-demo-corrections', LK = 'shiftclock-demo-leave';
+const CK = 'shiftclock-demo-corrections', LK = 'shiftclock-demo-leave', PK = 'shiftclock-demo-payreq';
 const rd = <T,>(k: string): T[] => { try { return JSON.parse(localStorage.getItem(k) || '[]') as T[]; } catch { return []; } };
 const wr = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } window.dispatchEvent(new Event('shiftclock-board')); };
 const me = () => demoSession.get();
@@ -107,27 +108,87 @@ export async function withdrawLeave(id: string): Promise<void> {
 /* ---------------- managers: approvals ---------------- */
 
 /** Everything pending, plus decisions from the last 60 days. */
-export async function fetchApprovals(): Promise<{ corrections: Correction[]; leave: LeaveRequest[] }> {
+export async function fetchApprovals(): Promise<{ corrections: Correction[]; leave: LeaveRequest[]; pay: PayRequest[] }> {
   const since = new Date(Date.now() - 60 * 86_400_000).toISOString();
   if (demoAuth) {
     return {
       corrections: rd<Correction>(CK).filter((c) => c.status === 'pending' || (c.reviewed_at ?? c.created_at) >= since),
       leave: rd<LeaveRequest>(LK).filter((l) => l.status === 'pending' || (l.reviewed_at ?? l.created_at) >= since),
+      pay: rd<PayRequest>(PK).filter((x) => x.status === 'pending' || (x.reviewed_at ?? x.created_at) >= since),
     };
   }
-  const [c, l] = await Promise.all([
+  const [c, l, p] = await Promise.all([
     supabase.from('corrections').select('*').or(`status.eq.pending,reviewed_at.gte.${since}`).order('created_at').limit(300),
     supabase.from('leave_requests').select('*').or(`status.eq.pending,reviewed_at.gte.${since}`).order('created_at').limit(300),
+    supabase.from('profile_requests').select('*').or(`status.eq.pending,reviewed_at.gte.${since}`).order('created_at').limit(300),
   ]);
   if (c.error) throw c.error;
   if (l.error) throw l.error;
-  return { corrections: (c.data ?? []) as Correction[], leave: (l.data ?? []) as LeaveRequest[] };
+  return { corrections: (c.data ?? []) as Correction[], leave: (l.data ?? []) as LeaveRequest[], pay: ((p.data ?? []) as PayRequest[]).map(numRates) };
 }
 
-export type RequestKind = 'correction' | 'leave';
+const numRates = (x: PayRequest): PayRequest => ({ ...x, new_rate: Number(x.new_rate), old_rate: x.old_rate === null ? null : Number(x.old_rate) });
+
+/* ---------------- everyone: pay-rate requests (the owner decides) ---------------- */
+
+export async function fetchMyPayRequests(userId: string): Promise<PayRequest[]> {
+  if (demoAuth) return rd<PayRequest>(PK).filter((x) => x.user_id === userId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const { data, error } = await supabase.from('profile_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10);
+  if (error) throw error;
+  return ((data ?? []) as PayRequest[]).map(numRates);
+}
+
+export async function createPayRequest(userId: string, newRate: number, reason: string): Promise<void> {
+  if (!Number.isFinite(newRate) || newRate < 0 || newRate > 10000) throw new RequestError('Type a rate between 0 and 10000.');
+  if (reason.trim().length < 3) throw new RequestError('Please write a short reason (at least 3 letters).');
+  if (demoAuth) {
+    const all = rd<PayRequest>(PK);
+    if (all.some((x) => x.user_id === userId && x.status === 'pending')) throw new RequestError('You already asked for a new rate. Wait for the answer, or withdraw it first.');
+    const id = crypto.randomUUID();
+    all.push({ id, user_id: userId, old_rate: DEMO_PROFILES.find((p) => p.id === userId)?.hourly_rate ?? null, new_rate: newRate, reason: reason.trim(), status: 'pending', reviewed_by: null, reviewed_by_name: null, reviewed_at: null, review_note: null, created_at: new Date().toISOString() });
+    wr(PK, all);
+    for (const o of DEMO_PROFILES.filter((p) => p.role === 'owner' && p.id !== userId)) demoNotifications.add({ recipient_id: o.id, type: 'pay.requested', payload: { kind: 'pay', request_id: id, employee_name: nameOf(userId), new_rate: newRate } });
+    return;
+  }
+  const { error } = await supabase.from('profile_requests').insert({ user_id: userId, new_rate: newRate, reason: reason.trim() });
+  if (error) throw requestError(error);
+}
+
+export async function withdrawPayRequest(id: string): Promise<void> {
+  if (demoAuth) { wr(PK, rd<PayRequest>(PK).filter((x) => x.id !== id || x.status !== 'pending')); return; }
+  const { error } = await supabase.from('profile_requests').delete().eq('id', id).eq('status', 'pending');
+  if (error) throw requestError(error);
+}
+
+export type RequestKind = 'correction' | 'leave' | 'pay';
 
 /** Approve / decline (or `pending` = Undo). */
 export async function decide(kind: RequestKind, id: string, status: RequestStatus, note?: string): Promise<void> {
+  if (kind === 'pay') {
+    if (demoAuth) {
+      const all = rd<PayRequest>(PK);
+      const row = all.find((x) => x.id === id);
+      const reviewer = me();
+      if (!row) throw new RequestError('That request no longer exists.');
+      if (reviewer?.role !== 'owner') throw new RequestError('Only the owner can change pay rates.');
+      if (row.status !== 'pending' && status !== 'pending') throw new RequestError('Undo the decision first, then decide again');
+      const person = DEMO_PROFILES.find((p) => p.id === row.user_id);
+      if (person && status === 'approved') person.hourly_rate = row.new_rate;
+      if (person && status === 'pending' && row.status === 'approved') person.hourly_rate = row.old_rate;
+      row.status = status;
+      row.reviewed_by = status === 'pending' ? null : reviewer.id;
+      row.reviewed_by_name = status === 'pending' ? null : reviewer.full_name;
+      row.reviewed_at = status === 'pending' ? null : new Date().toISOString();
+      row.review_note = status === 'pending' ? null : note?.trim() || null;
+      wr(PK, all);
+      if (status !== 'pending') demoNotifications.add({ recipient_id: row.user_id, type: status === 'approved' ? 'request.approved' : 'request.declined', payload: { kind: 'pay', request_id: id, review_note: row.review_note, reviewer_name: reviewer.full_name, new_rate: row.new_rate } });
+      return;
+    }
+    const { data, error } = await supabase.from('profile_requests').update({ status, review_note: status === 'pending' ? null : note?.trim() || null }).eq('id', id).select('id');
+    if (error) throw requestError(error);
+    if (!data?.length) throw new RequestError('Only the owner can change pay rates.');
+    return;
+  }
   if (demoAuth) {
     const key = kind === 'correction' ? CK : LK;
     const all = rd<Correction & LeaveRequest>(key);
@@ -140,8 +201,8 @@ export async function decide(kind: RequestKind, id: string, status: RequestStatu
     if (kind === 'correction') {
       const entries = demoEntries.all();
       if (status === 'approved') {
-        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.new_clock_in; e.clock_out = row.new_clock_out; e.edited = true; } }
-        else { const nid = crypto.randomUUID(); entries.unshift({ id: nid, user_id: row.user_id, clock_in: row.new_clock_in, clock_out: row.new_clock_out, method: 'manual', location_id: null, break_minutes: 0, note: 'Added by correction', edited: true, created_at: new Date().toISOString() }); row.applied_entry_id = nid; }
+        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.new_clock_in; e.clock_out = row.new_clock_out; e.edited = true; e.edited_by_name = reviewer?.full_name ?? null; } }
+        else { const nid = crypto.randomUUID(); entries.unshift({ id: nid, user_id: row.user_id, clock_in: row.new_clock_in, clock_out: row.new_clock_out, method: 'manual', location_id: null, break_minutes: 0, note: 'Added by correction', edited: true, edited_by_name: reviewer?.full_name ?? null, created_at: new Date().toISOString() }); row.applied_entry_id = nid; }
       } else if (status === 'pending' && row.status === 'approved') {
         if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.old_clock_in!; e.clock_out = row.old_clock_out; } }
         if (row.applied_entry_id) { const i = entries.findIndex((x) => x.id === row.applied_entry_id); if (i >= 0) entries.splice(i, 1); row.applied_entry_id = null; }

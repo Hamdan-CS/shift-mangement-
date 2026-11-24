@@ -1,4 +1,8 @@
-// ShiftClock · Edge Function `staff` (PLAN.md section 10, owner only).
+// ShiftClock · Edge Function `staff` (PLAN.md section 10).
+//
+// Who may do what:
+//   owner   → add employees, managers or another owner; new password for anyone
+//   manager → add employees; new password for employees (forgotten passwords)
 //
 // POST { action: 'create', full_name, username, password, role, job_title, hourly_rate }
 //   → makes a login "<username>@shiftclock.local". The role goes in app_metadata
@@ -33,7 +37,8 @@ Deno.serve(async (req) => {
   const { data: who, error: whoErr } = await asUser.auth.getUser();
   if (whoErr || !who.user) return fail(401, 'signed_out', 'Sign in first.');
   const { data: me } = await admin.from('profiles').select('id, role, active').eq('id', who.user.id).maybeSingle();
-  if (!me || !me.active || me.role !== 'owner') return fail(403, 'not_allowed', 'Only the owner can add people or set passwords.');
+  if (!me || !me.active || (me.role !== 'owner' && me.role !== 'manager')) return fail(403, 'not_allowed', 'Only the owner or a manager can add people or set passwords.');
+  const isOwner = me.role === 'owner';
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return fail(400, 'bad_request', 'Bad request.'); }
@@ -43,9 +48,11 @@ Deno.serve(async (req) => {
   if (body.action === 'create') {
     const username = String(body.username ?? '').trim().toLowerCase();
     const fullName = String(body.full_name ?? '').trim().slice(0, 80);
-    const role = body.role === 'manager' ? 'manager' : 'employee'; // a second owner is not made here
+    const role = body.role === 'owner' || body.role === 'manager' ? String(body.role) : 'employee';
+    if (role !== 'employee' && !isOwner) return fail(403, 'not_allowed', 'Only the owner can add managers or owners.');
     const jobTitle = String(body.job_title ?? '').trim().slice(0, 60) || null;
-    const rate = body.hourly_rate === null || body.hourly_rate === undefined || body.hourly_rate === '' ? null : Number(body.hourly_rate);
+    // pay rates are owner-only everywhere (profiles_guard_update), so a manager's new person starts without one
+    const rate = !isOwner || body.hourly_rate === null || body.hourly_rate === undefined || body.hourly_rate === '' ? null : Number(body.hourly_rate);
     if (!USERNAME.test(username)) return fail(400, 'bad_username', 'Username: 3–32 small letters, numbers, dot, dash or underscore.');
     if (fullName.length < 2) return fail(400, 'bad_name', 'Type the full name.');
     if (rate !== null && (!Number.isFinite(rate) || rate < 0 || rate > 10000)) return fail(400, 'bad_rate', 'The rate must be between 0 and 10000.');
@@ -82,8 +89,9 @@ Deno.serve(async (req) => {
   if (body.action === 'password') {
     const userId = String(body.user_id ?? '');
     if (!UUID.test(userId)) return fail(400, 'bad_request', 'Bad request.');
-    const { data: target } = await admin.from('profiles').select('id').eq('id', userId).maybeSingle();
+    const { data: target } = await admin.from('profiles').select('id, role').eq('id', userId).maybeSingle();
     if (!target) return fail(404, 'not_found', 'This person was not found.');
+    if (!isOwner && target.role !== 'employee') return fail(403, 'not_allowed', 'A manager can only reset employee passwords. Ask the owner.');
     const { error } = await admin.auth.admin.updateUserById(userId, { password });
     if (error) return fail(500, 'password_failed', 'Could not set the password.');
     await admin.from('audit_log').insert({ actor_id: me.id, action: 'person.password_set', target_type: 'profile', target_id: userId, before: null, after: null });

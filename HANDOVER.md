@@ -25,6 +25,22 @@ A short guide for whoever runs ShiftClock day to day. Everything technical lives
    are not real mailboxes. The owner can also fill it in on the person's page.
 6. **Locations & QR**: add the workplace, open the kiosk screen on a tablet by the door, or print the code.
 
+## People, passwords and approvals
+
+| Task | Who | Where |
+|---|---|---|
+| Add an employee | owner or manager | People → Add person (a manager's new person gets a rate from the owner) |
+| Add a manager or **another owner** | owner | People → Add person → role Manager / Owner |
+| Someone forgot their password | owner (anyone), manager (employees) | People → the person → **Reset password**, then pass on the new one shown |
+| Someone forgot to clock in or out | manager / owner | People → the person → **Add worked hours** (or Timesheets → Add entry). Counts in pay at once, saved with your name as approver |
+| Employee fixes their own clock times | employee asks, manager / owner approves | History → Request correction / Add a missing shift → Approvals |
+| Employee changes their name | the employee | My settings → Your name (straight away) |
+| Employee asks for a new pay rate | employee asks, **owner** approves | My settings → Pay rate → Ask for a new rate → Approvals (owner) |
+
+Every hour a manager adds or approves shows "approved by <name>" on Pay, History, Timesheets, the
+person's page and the copied text. Accounts made in the app are real Supabase logins
+(Authentication → Users) with a profile row; nothing else to do in Supabase.
+
 ## Turn on emails (Resend)
 
 Emails are built and scheduled already. Until a key is added they are logged as "skipped" on the

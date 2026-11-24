@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bell, CalendarClock, CalendarX2, CheckCircle2, Clock4, Plane, TimerOff, XCircle } from 'lucide-react';
+import { Bell, CalendarClock, CalendarX2, CheckCircle2, Clock4, Plane, TimerOff, Wallet, XCircle } from 'lucide-react';
 import type { Notification, NotificationType } from '@/types';
 
 /** Icon, text, destination and main-button label for each notification type. */
@@ -14,13 +14,14 @@ export const NOTIFICATION_ICONS: Record<NotificationType, ReactNode> = {
   'schedule.missing': <CalendarX2 size={15} />,
   'schedule.changed': <CalendarClock size={15} />,
   'shift.auto_closed': <TimerOff size={15} />,
+  'pay.requested': <Wallet size={15} />,
 };
 
 export const iconFor = (n: Notification): ReactNode => NOTIFICATION_ICONS[n.type] ?? <Bell size={15} />;
 
 export function describe(n: Notification): string {
   const p = n.payload;
-  const kind = p.kind === 'leave' ? 'leave request' : 'time correction';
+  const kind = p.kind === 'leave' ? 'leave request' : p.kind === 'pay' ? 'pay rate change' : 'time correction';
   switch (n.type) {
     case 'correction.requested':
       return `${str(p.employee_name, 'Someone')} asked to correct a clock time`;
@@ -37,6 +38,8 @@ export function describe(n: Notification): string {
       const what = p.change === 'delete' ? 'removed your shift' : p.change === 'insert' ? 'added a shift' : 'changed your shift';
       return `${str(p.editor_name, 'A manager')} ${what} on ${day}${p.change !== 'delete' && p.start ? ` (${p.start}–${p.end})` : ''}`;
     }
+    case 'pay.requested':
+      return `${str(p.employee_name, 'Someone')} asked for a new pay rate${typeof p.new_rate === 'number' || typeof p.new_rate === 'string' ? ` (${p.new_rate}/h)` : ''}`;
     case 'shift.auto_closed':
       return `Your shift was closed automatically after ${typeof p.hours === 'number' ? p.hours : 'too many'} hours`;
     default:
@@ -49,10 +52,11 @@ export function destinationFor(n: Notification, isAdmin: boolean): string | null
   switch (n.type) {
     case 'correction.requested':
     case 'leave.requested':
+    case 'pay.requested':
       return '/admin/approvals';
     case 'request.approved':
     case 'request.declined':
-      return n.payload.kind === 'leave' ? '/leave' : '/history';
+      return n.payload.kind === 'leave' ? '/leave' : n.payload.kind === 'pay' ? '/account' : '/history';
     case 'schedule.missing':
       return isAdmin ? '/admin/schedule' : '/schedule';
     case 'schedule.changed':
@@ -68,7 +72,8 @@ export function destinationFor(n: Notification, isAdmin: boolean): string | null
 export function actionFor(n: Notification): string {
   switch (n.type) {
     case 'correction.requested':
-    case 'leave.requested': return 'Review';
+    case 'leave.requested':
+    case 'pay.requested': return 'Review';
     case 'schedule.missing': return 'Open schedule';
     case 'schedule.changed': return 'View shift';
     case 'shift.auto_closed': return 'Fix the time';

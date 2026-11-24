@@ -70,3 +70,10 @@ li + li > .pr-card { border-top: 1px solid var(--border); border-radius: 0; }
 .ts-day .rq-item { gap: 12px; align-items: center; }
 .ts-day .rq-main { flex: 1; }
 .ts-day .rq-side .sc-chip { font-size: 12px; }
+
+/* days added / approved by a manager */
+.cal-d .pill.approved { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.person-approved ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.person-approved li { display: grid; grid-template-columns: 110px 60px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); }
+.person-approved li small { color: var(--text-3); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 1024px) { .person-approved li { font-size: 13px; } .person-approved li small { font-size: 12px; } }

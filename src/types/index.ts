@@ -56,7 +56,8 @@ export type NotificationType =
   | 'request.declined'
   | 'schedule.missing'
   | 'schedule.changed'
-  | 'shift.auto_closed';
+  | 'shift.auto_closed'
+  | 'pay.requested';
 
 export interface Notification {
   id: string;
@@ -78,6 +79,8 @@ export interface TimeEntry {
   break_minutes: number;
   note: string | null;
   edited: boolean;
+  /** Who added or approved this entry (a manager, the owner, or 'Auto clock-out'). */
+  edited_by_name?: string | null;
   created_at: string;
 }
 
@@ -132,6 +135,21 @@ export interface Location {
 }
 
 export type RequestStatus = 'pending' | 'approved' | 'declined';
+
+/** A row of `profile_requests`: an hourly-rate change the owner approves (migration 016). */
+export interface PayRequest {
+  id: string;
+  user_id: string;
+  old_rate: number | null;
+  new_rate: number;
+  reason: string;
+  status: RequestStatus;
+  reviewed_by: string | null;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+}
 
 /** A row of `corrections`: fix a wrong clock time, or add a shift that was never clocked (entry_id null). */
 export interface Correction {

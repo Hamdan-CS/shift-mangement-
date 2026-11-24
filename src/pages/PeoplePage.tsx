@@ -50,7 +50,7 @@ export function PeoplePage() {
       <WPageHeader
         title="People"
         subtitle={`${active.length} active${off.length ? ` · ${off.length} switched off` : ''}. Open someone for their hours, rate and deductions.`}
-        actions={isOwner ? <WButton onClick={() => setAdding(true)}><UserPlus size={17} /> Add person</WButton> : undefined}
+        actions={<WButton onClick={() => setAdding(true)}><UserPlus size={17} /> Add person</WButton>}
       />
       {people === null && <section className="sc-card"><span className="sc-skel block h-32 w-full" /></section>}
       <ul className="pp-grid">{active.map(card)}</ul>
@@ -60,12 +60,13 @@ export function PeoplePage() {
           <ul className="pp-grid muted">{off.map(card)}</ul>
         </>
       )}
-      {isOwner && <AddPersonSheet open={adding} onClose={() => setAdding(false)} onAdded={async () => { setAdding(false); await load(); }} />}
+      <AddPersonSheet open={adding} owner={isOwner} onClose={() => setAdding(false)} onAdded={async () => { setAdding(false); await load(); }} />
     </>
   );
 }
 
-function AddPersonSheet({ open, onClose, onAdded }: { open: boolean; onClose(): void; onAdded(): Promise<void> }) {
+/** Owner: employees, managers or another owner. Manager: employees (the owner sets their rate). */
+function AddPersonSheet({ open, owner, onClose, onAdded }: { open: boolean; owner: boolean; onClose(): void; onAdded(): Promise<void> }) {
   const empty = (): NewPerson => ({ full_name: '', username: '', password: suggestPassword(), role: 'employee', job_title: '', hourly_rate: null });
   const [v, setV] = useState<NewPerson>(empty);
   const [busy, setBusy] = useState(false);
@@ -108,13 +109,15 @@ function AddPersonSheet({ open, onClose, onAdded }: { open: boolean; onClose(): 
         <div className="w-field">
           <span className="w-label">Role</span>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Role">
-            {(['employee', 'manager'] as Role[]).map((r) => <button key={r} type="button" role="radio" aria-checked={v.role === r} className="sc-preset" aria-pressed={v.role === r} onClick={() => setV((x) => ({ ...x, role: r }))}>{roleLabel[r]}</button>)}
+            {((owner ? ['employee', 'manager', 'owner'] : ['employee']) as Role[]).map((r) => <button key={r} type="button" role="radio" aria-checked={v.role === r} className="sc-preset" aria-pressed={v.role === r} onClick={() => setV((x) => ({ ...x, role: r }))}>{roleLabel[r]}</button>)}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className={owner ? 'grid grid-cols-2 gap-3' : 'grid gap-3'}>
           <WInput label="Job title" placeholder="e.g. Cashier" value={v.job_title} onChange={(e) => setV((x) => ({ ...x, job_title: e.target.value }))} />
-          <WInput label="Hourly rate" type="number" inputMode="decimal" min={0} step="0.01" value={v.hourly_rate ?? ''} onChange={(e) => setV((x) => ({ ...x, hourly_rate: e.target.value === '' ? null : Number(e.target.value) }))} />
+          {owner && <WInput label="Hourly rate" type="number" inputMode="decimal" min={0} step="0.01" value={v.hourly_rate ?? ''} onChange={(e) => setV((x) => ({ ...x, hourly_rate: e.target.value === '' ? null : Number(e.target.value) }))} />}
         </div>
+        {v.role === 'owner' && <div className="sc-alert info"><span>An owner can do everything, including pay rates, deductions, people and settings.</span></div>}
+        {!owner && <p className="m-0 text-[13px] text-ink-3">The owner sets the pay rate.</p>}
         {error && <div className="sc-alert danger" role="alert"><AlertCircle size={16} className="mt-0.5 shrink-0" /><span>{error}</span></div>}
       </div>
     </BottomSheet>

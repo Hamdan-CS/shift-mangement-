@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Copy, Download, KeyRound, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClock } from '@/contexts/ClockContext';
 import { useSettings } from '@/hooks/useSettings';
@@ -11,6 +11,7 @@ import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { Switch } from '@/components/shared/ui/Switch';
 import { formatMoney } from '@/utils/labels';
 import { notify } from '@/utils/notify';
+import { copyText } from '@/utils/summary';
 import { roleLabel } from '@/utils/roles';
 import { cn } from '@/utils/cn';
 import { dayKey } from '@/utils/tz';
@@ -26,6 +27,7 @@ export function PersonPage() {
   const { id = '' } = useParams();
   const { profile: me } = useAuth();
   const isOwner = me?.role === 'owner';
+  const navigate = useNavigate();
   const { timeZone: tz } = useClock();
   const settings = useSettings();
   const currency = settings?.currency ?? 'PLN';
@@ -106,11 +108,21 @@ export function PersonPage() {
             {cells.map((d, i) => d === null ? <span key={`e${i}`} /> : (
               <div key={d} className={cn('cal-d', d === today && 'today', (i % 7) >= 5 && 'weekend')} role="gridcell">
                 <span className="tnum">{Number(d.slice(8))}</span>
-                {byDay.get(d) && <i className={cn('pill', byDay.get(d)!.minutes > ((person?.overtime_after_hours ?? 40) / 5) * 60 + 60 && 'long')}>{h1(byDay.get(d)!.minutes)}</i>}
+                {byDay.get(d) && <i className={cn('pill', byDay.get(d)!.minutes > ((person?.overtime_after_hours ?? 40) / 5) * 60 + 60 && 'long', byDay.get(d)!.approved_by && 'approved')} title={byDay.get(d)!.approved_by ? `Approved by ${byDay.get(d)!.approved_by}` : undefined}>{h1(byDay.get(d)!.minutes)}</i>}
                 {!byDay.get(d) && onLeave(d) && <i className="pill leave">Leave</i>}
               </div>
             ))}
           </div>
+          {(days ?? []).some((x) => x.approved_by) && (
+            <div className="person-approved">
+              <p className="sheet-label">Added or approved by a manager</p>
+              <ul>
+                {(days ?? []).filter((x) => x.approved_by).map((x) => (
+                  <li key={x.day}><b className="tnum">{new Date(`${x.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</b><span className="tnum">{h1(x.minutes)}</span><small>{x.approved_by}</small></li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         <aside className="sc-card person-side">
@@ -135,7 +147,8 @@ export function PersonPage() {
               </ul>
               <div className="mt-4 grid gap-2">
                 {isOwner && <WButton tone="secondary" onClick={() => setSheet('deduction')}><Plus size={17} /> Add deduction</WButton>}
-                {isOwner && person.id !== me?.id && <WButton tone="secondary" onClick={() => setSheet('password')}><KeyRound size={17} /> Set a new password</WButton>}
+                <WButton tone="secondary" onClick={() => navigate(`/admin/timesheets?person=${person.id}&add=1`)}><Clock3 size={17} /> Add worked hours</WButton>
+                {(isOwner ? person.id !== me?.id : person.role === 'employee') && <WButton tone="secondary" onClick={() => setSheet('password')}><KeyRound size={17} /> Reset password</WButton>}
                 <WButton onClick={excel} disabled={busy}>{busy ? <Loader2 size={17} className="animate-spin" /> : <Download size={17} />} Download Excel (this month)</WButton>
               </div>
             </>
@@ -230,16 +243,38 @@ function DeductionSheet({ open, userId, onClose, onSaved }: { open: boolean; use
 function PasswordSheet({ open, person, onClose }: { open: boolean; person: Profile; onClose(): void }) {
   const [pw, setPw] = useState(suggestPassword());
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setPw(suggestPassword()); setBusy(false); } }, [open]);
+  const [done, setDone] = useState(false);
+  useEffect(() => { if (open) { setPw(suggestPassword()); setBusy(false); setDone(false); } }, [open]);
   const save = async () => {
     setBusy(true);
-    try { await setPassword(person.id, pw); notify.success(`New password set for ${person.full_name.split(' ')[0]}`); onClose(); }
-    catch (e) { notify.error(e instanceof PayError ? e.message : 'Could not set the password.'); setBusy(false); }
+    try { await setPassword(person.id, pw); setDone(true); }
+    catch (e) { notify.error(e instanceof PayError ? e.message : 'Could not set the password.'); }
+    finally { setBusy(false); }
   };
+  if (done) {
+    return (
+      <BottomSheet open={open} onClose={onClose} title="New password set" footer={<WButton onClick={onClose}>Done</WButton>}>
+        <p className="sheet-sub">Give {person.full_name.split(' ')[0]} these details. The old password no longer works. They can change it under My settings after signing in.</p>
+        <dl className="tl-dl">
+          <div><dt>Username</dt><dd>{person.username}</dd></div>
+          <div><dt>New password</dt><dd className="tnum">{pw}</dd></div>
+        </dl>
+        <WButton tone="secondary" block className="mt-3" onClick={async () => { if (await copyText(`Username: ${person.username}
+Password: ${pw}`)) notify.success('Copied'); }}><Copy size={17} /> Copy login details</WButton>
+      </BottomSheet>
+    );
+  }
   return (
-    <BottomSheet open={open} onClose={onClose} title="Set a new password" footer={<WButton onClick={save} disabled={busy || pw.length < 8}>{busy ? <Loader2 size={18} className="animate-spin" /> : 'Set password'}</WButton>}>
-      <p className="sheet-sub">For {person.full_name} (@{person.username}). Tell them the new password; they can change it after signing in.</p>
-      <WInput label="New password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="off" hint="At least 8 characters" />
+    <BottomSheet open={open} onClose={onClose} title="Reset password" footer={<WButton onClick={save} disabled={busy || pw.length < 8}>{busy ? <Loader2 size={18} className="animate-spin" /> : 'Set new password'}</WButton>}>
+      <p className="sheet-sub">For {person.full_name} (@{person.username}), when they forgot it. You'll see the new password to pass on.</p>
+      <div className="w-field">
+        <label className="w-label" htmlFor="pw-new">New password</label>
+        <div className="flex gap-2">
+          <input id="pw-new" className="w-input" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="off" />
+          <button type="button" className="sc-iconbtn" onClick={() => setPw(suggestPassword())} aria-label="Suggest another password"><RefreshCw size={18} /></button>
+        </div>
+        <small className="w-hint">At least 8 characters</small>
+      </div>
     </BottomSheet>
   );
 }

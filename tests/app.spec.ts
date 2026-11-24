@@ -118,4 +118,45 @@ test.describe('desktop', () => {
     expect(text).toContain('*Gross:*');
     expect(text).toContain('*Net pay:*');
   });
+
+  test('employee asks for a new rate, owner approves it in Approvals', async ({ page }) => {
+    await signIn(page, 'ali');
+    await page.goto('/account');
+    await page.getByRole('button', { name: 'Ask for a new rate' }).click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel('New hourly rate').fill('34');
+    await sheet.getByLabel('Why?').fill('One year in the job');
+    await sheet.getByRole('button', { name: 'Send for approval' }).click();
+    await expect(page.getByText('Sent to the owner for approval')).toBeVisible();
+    await expect(page.getByText(/Asked for .*34/)).toBeVisible();
+    // owner (same browser storage in demo mode)
+    await page.evaluate(() => localStorage.setItem('shiftclock-demo-user', 'demo-owner'));
+    await page.goto('/admin/approvals');
+    await page.getByRole('button', { name: /Ali Hassan: Pay rate change/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    await expect(page.getByText(/pay rate change approved/i)).toBeVisible();
+  });
+
+  test('manager adds worked hours from a person page; it shows who approved', async ({ page }) => {
+    await signIn(page, 'manager');
+    await page.goto('/admin/people/demo-lina');
+    await page.getByRole('button', { name: 'Add worked hours' }).click();
+    await expect(page).toHaveURL(/\/admin\/timesheets/);
+    const sheet = page.getByRole('dialog');
+    await expect(sheet.getByLabel('Person')).toHaveValue('demo-lina');
+    await sheet.getByLabel('Start').fill('07:00');
+    await sheet.getByLabel('End').fill('11:00');
+    await sheet.getByRole('button', { name: 'Add entry' }).click();
+    await expect(page.getByText('Entry added')).toBeVisible();
+    await expect(page.getByText(/07:00 – 11:00 · by Omar Haddad/)).toBeVisible();
+  });
+
+  test('manager resets an employee password and sees it', async ({ page }) => {
+    await signIn(page, 'manager');
+    await page.goto('/admin/people/demo-ali');
+    await page.getByRole('button', { name: 'Reset password' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Set new password' }).click();
+    await expect(page.getByRole('dialog').getByText('New password set')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copy login details' })).toBeVisible();
+  });
 });

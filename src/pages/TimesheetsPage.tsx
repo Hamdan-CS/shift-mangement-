@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, Download, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useClock } from '@/contexts/ClockContext';
 import { downloadExcel, fetchPeople, PayError } from '@/services/pay';
@@ -18,12 +19,17 @@ export function TimesheetsPage() {
   const { timeZone: tz } = useClock();
   const { period, picker } = usePeriod(tz);
   const [people, setPeople] = useState<Profile[]>([]);
-  const [who, setWho] = useState('');
+  const [params, setParams] = useSearchParams();
+  const [who, setWho] = useState(() => params.get('person') ?? '');
   const [rows, setRows] = useState<TimeEntry[] | null>(null);
   const [edit, setEdit] = useState<TimeEntry | 'new' | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { fetchPeople().then(setPeople).catch(() => setPeople([])); }, []);
+  // "Add worked hours" from a person's page: open the form for them once
+  useEffect(() => {
+    if (params.get('add') === '1' && people.length) { setEdit('new'); setParams({}, { replace: true }); }
+  }, [params, people, setParams]);
   const load = useCallback(async () => {
     setRows(null);
     const from = zoned(period.from, '00:00', tz);
@@ -51,7 +57,7 @@ export function TimesheetsPage() {
     <>
       <WPageHeader
         title="Timesheets"
-        subtitle="Every clock entry. Fix a time, add a missed shift or remove a mistake. Changes are marked as edited."
+        subtitle="Every clock entry. Add a shift someone forgot to clock, fix a time or remove a mistake. It counts in pay straight away, with your name as approver."
         actions={(
           <>
             <WButton tone="secondary" onClick={() => setEdit('new')}><Plus size={17} /> Add entry</WButton>
@@ -85,7 +91,7 @@ export function TimesheetsPage() {
                     <WAvatar name={p?.full_name ?? '?'} src={p?.avatar_url} size={36} />
                     <div className="rq-main">
                       <b>{p?.full_name ?? 'Unknown'}</b>
-                      <small className="tnum">{clockTime(e.clock_in, tz)} – {e.clock_out ? clockTime(e.clock_out, tz) : 'now'}{e.break_minutes ? ` · break ${e.break_minutes}m` : ''}{e.note ? ` · ${e.note}` : ''}</small>
+                      <small className="tnum">{clockTime(e.clock_in, tz)} – {e.clock_out ? clockTime(e.clock_out, tz) : 'now'}{e.break_minutes ? ` · break ${e.break_minutes}m` : ''}{e.note ? ` · ${e.note}` : ''}{e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}</small>
                     </div>
                     <div className="rq-side">
                       <b className="tnum text-[16px] lg:text-[13.5px]">{formatHours(mins(e))}</b>

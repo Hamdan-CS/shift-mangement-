@@ -159,7 +159,7 @@ export function HistoryPage() {
                     <span className="hx-tags">
                       {!e.clock_out && <WChip tone="ok">Working</WChip>}
                       <WChip tone="default" dot={false}>{METHOD[e.method]}</WChip>
-                      {e.edited && <WChip tone="warn" dot={false}>Edited</WChip>}
+                      {e.edited && <WChip tone="warn" dot={false}>{e.edited_by_name ? `Approved by ${e.edited_by_name}` : 'Edited'}</WChip>}
                       {fixOf.get(e.id)?.status === 'pending' && <WChip tone="accent">Fix pending</WChip>}
                       {fixOf.get(e.id)?.status === 'approved' && <WChip tone="ok">Fixed</WChip>}
                       {fixOf.get(e.id)?.status === 'declined' && <WChip tone="danger">Fix declined</WChip>}

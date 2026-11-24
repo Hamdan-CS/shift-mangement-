@@ -5,7 +5,7 @@
  */
 import { supabase, demoAuth } from '@/integrations/supabase/client';
 import type { TimeEntry } from '@/types';
-import { demoEntries } from './demo';
+import { demoEntries, demoSession } from './demo';
 
 export class SheetError extends Error {}
 
@@ -36,8 +36,9 @@ export async function saveEntry(id: string | null, e: EntryInput): Promise<void>
   check(e);
   if (demoAuth) {
     const list = demoEntries.all();
-    if (id) { const x = list.find((y) => y.id === id); if (x) Object.assign(x, e, { edited: true }); }
-    else list.push({ ...e, id: crypto.randomUUID(), method: 'manual', location_id: null, edited: true, created_at: new Date().toISOString() });
+    const by = demoSession.get()?.full_name ?? null;
+    if (id) { const x = list.find((y) => y.id === id); if (x) Object.assign(x, e, { edited: true, edited_by_name: by }); }
+    else list.push({ ...e, id: crypto.randomUUID(), method: 'manual', location_id: null, edited: true, edited_by_name: by, created_at: new Date().toISOString() });
     demoEntries.save(list);
     return;
   }

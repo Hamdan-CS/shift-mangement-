@@ -85,7 +85,7 @@ export function PayPage() {
               <li key={d.day} className="rq-item">
                 <div className="rq-main">
                   <b>{new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</b>
-                  <small className="tnum">{clockTime(d.first_in, tz)} – {d.last_out ? clockTime(d.last_out, tz) : 'now'}{d.break_minutes ? ` · break ${d.break_minutes}m` : ''}{d.corrected ? ' · corrected' : ''}</small>
+                  <small className="tnum">{clockTime(d.first_in, tz)} – {d.last_out ? clockTime(d.last_out, tz) : 'now'}{d.break_minutes ? ` · break ${d.break_minutes}m` : ''}{d.approved_by ? ` · approved by ${d.approved_by}` : d.corrected ? ' · corrected' : ''}</small>
                 </div>
                 <div className="rq-side">
                   <b className="tnum text-[16px] lg:text-[13.5px]">{formatHours(d.minutes)}</b>

@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, Clock3, Inbox, Loader2, Plane, Undo2, X } from 'lucide-react';
+import { ArrowRight, Check, Clock3, Inbox, Loader2, Plane, Undo2, Wallet, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClock } from '@/contexts/ClockContext';
 import { useMediaQuery, DESKTOP } from '@/hooks/useMediaQuery';
+import { useSettings } from '@/hooks/useSettings';
 import { fetchTeam, subscribeNotifications } from '@/services/api';
 import { decide, fetchApprovals, LEAVE_LABEL, leaveDays, RequestError, type RequestKind } from '@/services/requests';
 import { WAvatar, WButton, WChip, WPageHeader, WTextarea } from '@/components/app/ui';
 import { Tabs } from '@/components/shared/ui/Tabs';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { STATUS_CHIP } from '@/components/requests/status';
-import { formatHours, relativeDate } from '@/utils/labels';
+import { formatHours, formatMoney, relativeDate } from '@/utils/labels';
 import { notify } from '@/utils/notify';
 import { cn } from '@/utils/cn';
 import { clockTime, shortDay } from '@/utils/tz';
-import type { Correction, LeaveRequest, PublicProfile, RequestStatus } from '@/types';
+import type { Correction, LeaveRequest, PayRequest, PublicProfile, RequestStatus } from '@/types';
 
 type Item =
   | { kind: 'correction'; id: string; userId: string; status: RequestStatus; created: string; decided: string | null; note: string | null; c: Correction }
-  | { kind: 'leave'; id: string; userId: string; status: RequestStatus; created: string; decided: string | null; note: string | null; l: LeaveRequest };
+  | { kind: 'leave'; id: string; userId: string; status: RequestStatus; created: string; decided: string | null; note: string | null; l: LeaveRequest }
+  | { kind: 'pay'; id: string; userId: string; status: RequestStatus; created: string; decided: string | null; note: string | null; p: PayRequest };
 type Filter = 'all' | RequestKind;
 
 const mins = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 60_000;
@@ -32,6 +34,8 @@ export function ApprovalsPage() {
   const { profile } = useAuth();
   const { timeZone: tz } = useClock();
   const desktop = useMediaQuery(DESKTOP);
+  const settings = useSettings();
+  const money = (n: number | null) => (n === null ? 'No rate' : `${formatMoney(n, settings?.currency ?? 'PLN')}/h`);
   const [tab, setTab] = useState<RequestStatus>('pending');
   const [filter, setFilter] = useState<Filter>('all');
   const [items, setItems] = useState<Item[] | null>(null);
@@ -41,11 +45,12 @@ export function ApprovalsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [{ corrections, leave }, team] = await Promise.all([fetchApprovals(), fetchTeam()]);
+      const [{ corrections, leave, pay }, team] = await Promise.all([fetchApprovals(), fetchTeam()]);
       setPeople(new Map(team.map((p) => [p.id, p])));
       setItems([
         ...corrections.map<Item>((c) => ({ kind: 'correction', id: c.id, userId: c.user_id, status: c.status, created: c.created_at, decided: c.reviewed_at, note: c.review_note, c })),
         ...leave.map<Item>((l) => ({ kind: 'leave', id: l.id, userId: l.user_id, status: l.status, created: l.created_at, decided: l.reviewed_at, note: l.review_note, l })),
+        ...pay.map<Item>((p) => ({ kind: 'pay', id: p.id, userId: p.user_id, status: p.status, created: p.created_at, decided: p.reviewed_at, note: p.review_note, p })),
       ]);
     } catch {
       setItems((x) => x ?? []);
@@ -68,7 +73,8 @@ export function ApprovalsPage() {
     .sort((a, b) => (tab === 'pending' ? a.created.localeCompare(b.created) : (b.decided ?? '').localeCompare(a.decided ?? ''))), [items, tab, filter]);
 
   const nameOf = (id: string) => people.get(id)?.full_name ?? 'Someone';
-  const ownBlocked = (i: Item) => i.userId === profile?.id && profile?.role !== 'owner';
+  // pay rates are owner-only; everything else: anyone but the person asking (unless they're the owner)
+  const ownBlocked = (i: Item) => (i.kind === 'pay' ? profile?.role !== 'owner' || i.userId === profile?.id : i.userId === profile?.id && profile?.role !== 'owner');
 
   const act = async (i: Item, status: RequestStatus, note?: string) => {
     setBusy(i.id);
@@ -77,7 +83,7 @@ export function ApprovalsPage() {
       setOpen(null);
       await load();
       if (status === 'pending') { notify.success('Decision undone. The request is waiting again.'); return; }
-      const what = i.kind === 'correction' ? (i.c.entry_id ? 'time fix' : 'missing shift') : 'leave';
+      const what = i.kind === 'correction' ? (i.c.entry_id ? 'time fix' : 'missing shift') : i.kind === 'pay' ? 'pay rate change' : 'leave';
       notify.undoable(`${nameOf(i.userId).split(' ')[0]}'s ${what} ${status}`, () => { void act({ ...i, status }, 'pending'); });
     } catch (e) {
       notify.error(e instanceof RequestError ? e.message : 'Could not save the decision. Try again.');
@@ -87,6 +93,7 @@ export function ApprovalsPage() {
   };
 
   const summary = (i: Item) => {
+    if (i.kind === 'pay') return { icon: <Wallet size={16} />, title: 'Pay rate change', detail: `${money(i.p.old_rate)} → ${money(i.p.new_rate)}` };
     if (i.kind === 'leave') {
       const n = leaveDays(i.l);
       return { icon: <Plane size={16} />, title: LEAVE_LABEL[i.l.type], detail: `${fmtDay(i.l.start_date)}${n > 1 ? ` – ${fmtDay(i.l.end_date)}` : ''} · ${n} ${n === 1 ? 'day' : 'days'}` };
@@ -114,8 +121,8 @@ export function ApprovalsPage() {
           items={[{ id: 'pending', label: 'Needs review', count: counts.pending }, { id: 'approved', label: 'Approved', count: counts.approved }, { id: 'declined', label: 'Declined', count: counts.declined }]}
         />
         <div className="sc-pills" role="group" aria-label="Type">
-          {(['all', 'correction', 'leave'] as Filter[]).map((f) => (
-            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>{f === 'all' ? 'All' : f === 'correction' ? 'Time fixes' : 'Leave'}</button>
+          {(['all', 'correction', 'leave', 'pay'] as Filter[]).map((f) => (
+            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>{f === 'all' ? 'All' : f === 'correction' ? 'Time fixes' : f === 'leave' ? 'Leave' : 'Pay rate'}</button>
           ))}
         </div>
       </div>
@@ -161,7 +168,8 @@ export function ApprovalsPage() {
         tz={tz}
         name={open ? nameOf(open.userId) : ''}
         person={open ? people.get(open.userId) : undefined}
-        reviewer={open?.kind === 'correction' ? (open.c.reviewed_by ? nameOf(open.c.reviewed_by) : null) : open?.kind === 'leave' && open.l.reviewed_by ? nameOf(open.l.reviewed_by) : null}
+        reviewer={open?.kind === 'correction' ? (open.c.reviewed_by ? nameOf(open.c.reviewed_by) : null) : open?.kind === 'leave' ? (open.l.reviewed_by ? nameOf(open.l.reviewed_by) : null) : open?.kind === 'pay' ? open.p.reviewed_by_name : null}
+        money={money}
         blocked={open ? ownBlocked(open) : false}
         busy={busy === open?.id}
         onClose={() => setOpen(null)}
@@ -171,8 +179,8 @@ export function ApprovalsPage() {
   );
 }
 
-function RequestDrawer({ item, tz, name, person, reviewer, blocked, busy, onClose, onDecide }: {
-  item: Item | null; tz: string; name: string; person?: PublicProfile; reviewer: string | null; blocked: boolean; busy: boolean;
+function RequestDrawer({ item, tz, name, person, reviewer, money, blocked, busy, onClose, onDecide }: {
+  item: Item | null; tz: string; name: string; person?: PublicProfile; reviewer: string | null; money(n: number | null): string; blocked: boolean; busy: boolean;
   onClose(): void; onDecide(status: RequestStatus, note?: string): void;
 }) {
   const [note, setNote] = useState('');
@@ -184,7 +192,7 @@ function RequestDrawer({ item, tz, name, person, reviewer, blocked, busy, onClos
 
   const footer = i.status === 'pending'
     ? (blocked
-      ? <p className="m-0 text-[14px] text-ink-3">This is your own request. The owner decides it.</p>
+      ? <p className="m-0 text-[14px] text-ink-3">{i.kind === 'pay' ? 'Only the owner can change pay rates.' : 'This is your own request. The owner decides it.'}</p>
       : (
         <>
           <WButton tone="secondary" onClick={() => onDecide('declined', note)} disabled={busy}><X size={18} /> Decline</WButton>
@@ -201,7 +209,16 @@ function RequestDrawer({ item, tz, name, person, reviewer, blocked, busy, onClos
         <WChip tone={st.tone}>{st.label}</WChip>
       </div>
 
-      {i.kind === 'correction' ? (
+      {i.kind === 'pay' ? (
+        <>
+          <p className="sheet-label">Hourly rate</p>
+          <div className="ap-compare">
+            <div className="ap-tile"><small>Now</small><b className="tnum">{money(i.p.old_rate)}</b><small> </small></div>
+            <ArrowRight size={18} className="text-ink-3" aria-hidden="true" />
+            <div className="ap-tile new"><small>Asks for</small><b className="tnum">{money(i.p.new_rate)}</b><small className="tnum">{i.p.old_rate !== null ? `${i.p.new_rate >= i.p.old_rate ? '+' : '−'}${money(Math.abs(i.p.new_rate - i.p.old_rate))}` : ' '}</small></div>
+          </div>
+        </>
+      ) : i.kind === 'correction' ? (
         <>
           <p className="sheet-label">{i.c.entry_id ? 'Fix a clock time' : 'Add a shift that was never clocked'} · {shortDay(i.c.new_clock_in, tz, { weekday: 'long', day: 'numeric', month: 'short' })}</p>
           <div className="ap-compare">
@@ -232,10 +249,10 @@ function RequestDrawer({ item, tz, name, person, reviewer, blocked, busy, onClos
         </>
       )}
 
-      {(i.kind === 'correction' ? i.c.reason : i.l.reason) && (
+      {(i.kind === 'correction' ? i.c.reason : i.kind === 'pay' ? i.p.reason : i.l.reason) && (
         <>
           <p className="sheet-label">Reason</p>
-          <p className="ap-reason">“{i.kind === 'correction' ? i.c.reason : i.l.reason}”</p>
+          <p className="ap-reason">“{i.kind === 'correction' ? i.c.reason : i.kind === 'pay' ? i.p.reason : i.l.reason}”</p>
         </>
       )}
 
@@ -243,7 +260,7 @@ function RequestDrawer({ item, tz, name, person, reviewer, blocked, busy, onClos
       <ol className="ap-timeline">
         <li><b>Requested</b><small>{shortDay(i.created, tz, { weekday: 'short', day: 'numeric', month: 'short' })}, {clockTime(i.created, tz)}</small></li>
         {i.status === 'pending'
-          ? <li className="now"><b>Waiting for a manager</b><small>{relativeDate(i.created)}</small></li>
+          ? <li className="now"><b>{i.kind === 'pay' ? 'Waiting for the owner' : 'Waiting for a manager'}</b><small>{relativeDate(i.created)}</small></li>
           : <li className={i.status}><b>{i.status === 'approved' ? 'Approved' : 'Declined'}{reviewer ? ` by ${reviewer}` : ''}</b><small>{i.decided ? `${shortDay(i.decided, tz, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clockTime(i.decided, tz)}` : ''}{i.note ? ` · “${i.note}”` : ''}</small></li>}
       </ol>
 
