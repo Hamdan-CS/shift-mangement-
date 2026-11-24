@@ -1,0 +1,15 @@
+@import './design-system/tokens/tokens.css';
+@import './design-system/styles/amplo.css';
+@import './design-system/styles/timeline.css';
+@import './design-system/styles/schedule.css';
+@import './design-system/styles/qr.css';
+@import './design-system/styles/requests.css';
+@import './design-system/styles/messages.css';
+@import './design-system/styles/pay.css';
+@import './design-system/styles/insights.css';
+@import './design-system/styles/admin.css';
+@import './design-system/styles/motion.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

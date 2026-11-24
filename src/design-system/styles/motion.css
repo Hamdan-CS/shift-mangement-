@@ -1,0 +1,73 @@
+/*
+ * Motion (Webloop-style: short, ease-out, nothing bouncy).
+ * Pages fade + rise in, cards stagger, sheets / drawers / dialogs slide in and
+ * out, controls respond to hover and press. Everything is switched off by the
+ * prefers-reduced-motion rule at the end of amplo.css.
+ */
+:root {
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1);
+}
+
+/* ---------- page change ---------- */
+.sc-page { animation: page-in .36s var(--ease-out) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ---------- cards: stagger in on load ---------- */
+.sc-stagger > *, .sc-stagger > .sc-grid > * { animation: card-in .5s var(--ease-out) both; }
+.sc-stagger > :nth-child(1) > :nth-child(1), .sc-stagger > :nth-child(1):not(.sc-grid) { animation-delay: .04s; }
+.sc-stagger > :nth-child(1) > :nth-child(2) { animation-delay: .1s; }
+.sc-stagger > :nth-child(2) > :nth-child(1), .sc-stagger > :nth-child(2):not(.sc-grid) { animation-delay: .16s; }
+.sc-stagger > :nth-child(2) > :nth-child(2) { animation-delay: .22s; }
+.sc-stagger > :nth-child(3) > *, .sc-stagger > :nth-child(3):not(.sc-grid) { animation-delay: .28s; }
+.sc-stagger > :nth-child(n+4) > *, .sc-stagger > :nth-child(n+4):not(.sc-grid) { animation-delay: .34s; }
+.sc-stagger > .sc-grid { animation: none; }
+@keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+
+/* list rows ease in one after another */
+.rq-list > li, .pp-grid > li, .ap-list > li { animation: row-in .38s var(--ease-out) both; }
+.rq-list > li:nth-child(2), .pp-grid > li:nth-child(2), .ap-list > li:nth-child(2) { animation-delay: .04s; }
+.rq-list > li:nth-child(3), .pp-grid > li:nth-child(3), .ap-list > li:nth-child(3) { animation-delay: .08s; }
+.rq-list > li:nth-child(4), .pp-grid > li:nth-child(4), .ap-list > li:nth-child(4) { animation-delay: .12s; }
+.rq-list > li:nth-child(n+5), .pp-grid > li:nth-child(n+5), .ap-list > li:nth-child(n+5) { animation-delay: .16s; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- interactive cards ---------- */
+.sc-card { transition: box-shadow .25s var(--ease-out), border-color .25s, transform .25s var(--ease-out); }
+.sc-hover:hover { box-shadow: var(--shadow-pop); border-color: var(--border-strong); }
+.pp-card, .pr-card, .ap-open, .sheet-row, .tl-li { transition: background-color .18s, border-color .18s, box-shadow .2s, transform .2s var(--ease-out); }
+.pp-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); }
+.pp-card:active, .pr-card:active, .ap-open:active, .sheet-row:active { transform: scale(.985); }
+
+/* ---------- controls ---------- */
+.sc-btn, .sc-iconbtn, .sc-preset, .sc-pills button, .sc-seg button, .sc-nav a, .donut-key { transition: background-color .18s, color .18s, border-color .18s, box-shadow .18s, transform .12s var(--ease-out); }
+.sc-btn:hover:not(:disabled) { box-shadow: var(--shadow-ctl), 0 6px 16px -8px color-mix(in srgb, var(--accent) 55%, transparent); }
+.sc-btn-secondary:hover:not(:disabled), .sc-btn-ghost:hover:not(:disabled) { box-shadow: none; }
+.sc-iconbtn:active, .sc-preset:active, .sc-pills button:active, .sc-seg button:active, .sc-nav a:active { transform: scale(.95); }
+
+/* bottom tab bar: the active icon pops */
+.mtab-i.active .mtab-ic svg { animation: tab-pop .32s var(--ease-out); }
+.mtab-ic { transition: background-color .2s, color .2s; }
+@keyframes tab-pop { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: none; } }
+
+/* ---------- sheets, dialogs, drawers: in AND out ---------- */
+.sheet-root.out { animation: sc-fade-out .2s var(--ease-in) both; }
+.sheet { animation: sheet-up .32s var(--ease-out) both; }
+.sheet-root.out .sheet { animation: sheet-down .2s var(--ease-in) both; }
+@keyframes sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes sc-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@media (min-width: 1024px) {
+  .sheet { animation: dialog-in .24s var(--ease-out) both; }
+  .sheet-root.out .sheet { animation: dialog-out .18s var(--ease-in) both; }
+  .sheet-root.drawer.out .sheet { animation: drawer-out .2s var(--ease-in) both; }
+}
+@keyframes dialog-in { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes dialog-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px) scale(.97); } }
+@keyframes drawer-out { from { transform: none; opacity: 1; } to { transform: translateX(32px); opacity: 0; } }
+
+/* dropdown menus grow from their corner */
+.sc-menu { transform-origin: top right; animation: menu-in .18s var(--ease-out) both; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* skeleton → content */
+.sc-skel { animation: sc-fade .3s ease-out both; }

@@ -1,0 +1,21 @@
+# Never upload secrets: .env has the service-role key, the seed file has passwords.
+.env
+.env.*
+!.env.example
+*.local
+*.local.md
+scripts/seed-credentials.local.md
+
+# Not needed to build the site
+/node_modules
+/dist
+/.claude
+/.playwright-cli
+/screenshots
+/design-refs
+/design-refs 1
+*.zip
+/reference
+/webloop
+/supabase
+/PLAN.md

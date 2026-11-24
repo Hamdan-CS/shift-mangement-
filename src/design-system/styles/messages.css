@@ -1,0 +1,49 @@
+/* Messaging (Phase 6): list + thread. Phone first. */
+.msg-wrap { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) { .msg-wrap { grid-template-columns: 340px minmax(0, 1fr); align-items: start; } }
+
+.msg-list { padding: 8px; }
+.msg-list-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px 10px; }
+.msg-list-h b { font-size: 17px; font-weight: 600; }
+.msg-list ul { list-style: none; margin: 0; padding: 0; }
+.msg-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 10px; border: 0; border-radius: 14px; background: none; text-align: left; cursor: pointer; color: var(--text); }
+.msg-row:hover, .msg-row.on { background: var(--surface-2); }
+.msg-row-top, .msg-row-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.msg-row-top b { font-size: 16px; font-weight: 600; min-width: 0; }
+.msg-row-top small { font-size: 13px; color: var(--text-3); flex: none; }
+.msg-row-bottom small { font-size: 14px; color: var(--text-3); min-width: 0; display: block; }
+.msg-unread { flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-style: normal; font-weight: 600; line-height: 22px; text-align: center; }
+.msg-team-av { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--accent-soft); color: var(--accent); }
+@media (min-width: 1024px) { .msg-row-top b { font-size: 13.5px; } .msg-row-bottom small, .msg-row-top small { font-size: 12px; } .msg-list-h b { font-size: 15px; } }
+
+/* thread: on phones it fills the screen between the top bar and the tab bar */
+.msg-thread { display: flex; flex-direction: column; padding: 0; overflow: hidden; height: calc(100dvh - 76px - 112px - env(safe-area-inset-bottom, 0px)); min-height: 360px; }
+@media (min-width: 1024px) { .msg-thread { height: calc(100dvh - 210px); min-height: 480px; } }
+.msg-thread-h { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.msg-thread-h b { display: block; font-size: 17px; font-weight: 600; }
+.msg-thread-h small { display: block; font-size: 13px; color: var(--text-3); }
+.msg-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; display: flex; flex-direction: column; }
+.msg-body > div:first-child { margin-top: auto; }
+.msg-empty { margin: auto; color: var(--text-3); font-size: 15px; }
+.msg-day { margin: 14px 0 8px; text-align: center; font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.msg-line { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; }
+.msg-line.grouped { margin-top: 2px; padding-left: 38px; }
+.msg-line.own { flex-direction: row-reverse; padding-left: 0; }
+.msg-line.own.grouped { padding-left: 0; }
+.msg-bubble {
+  max-width: min(78%, 520px); display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 9px 12px; border-radius: 18px 18px 18px 6px; border: 0;
+  background: var(--surface-2); color: var(--text); font-size: 16px; line-height: 1.35; white-space: pre-wrap; word-break: break-word;
+}
+.msg-bubble:disabled { cursor: default; opacity: 1; }
+.msg-line.own .msg-bubble { background: var(--accent); color: var(--accent-ink); border-radius: 18px 18px 6px 18px; cursor: pointer; }
+.msg-bubble b { font-size: 13px; font-weight: 600; color: var(--accent); }
+.msg-bubble small { align-self: flex-end; font-size: 12px; opacity: .7; }
+@media (min-width: 1024px) { .msg-bubble { font-size: 14px; } .msg-thread-h b { font-size: 15px; } .msg-thread-h small { font-size: 12px; } }
+
+.msg-compose { display: flex; align-items: flex-end; gap: 8px; padding: 10px; border-top: 1px solid var(--border); background: var(--surface); }
+.msg-compose textarea { min-height: 48px; max-height: 140px; height: 48px; resize: none; padding: 12px 14px; border-radius: 24px; }
+@media (min-width: 1024px) { .msg-compose textarea { min-height: 42px; height: 42px; padding: 10px 14px; } }
+.msg-send { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.msg-send:disabled { opacity: .45; cursor: default; }
+@media (min-width: 1024px) { .msg-send { width: 42px; height: 42px; } }

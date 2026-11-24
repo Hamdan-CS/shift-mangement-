@@ -1,0 +1,49 @@
+/* Settings + Reports (Phase 9). Phone first. */
+
+/* ---------- settings ---------- */
+.set-grid { display: grid; gap: 16px; }
+@media (min-width: 1024px) { .set-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } .set-wide { grid-column: 1 / -1; } }
+.set-times { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) { .set-times { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.set-rcpt { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 4px 0 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 500; animation: row-in .25s var(--ease-out) both; }
+.set-rcpt button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.set-rcpt button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.set-bar {
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 40; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 18px; border-radius: 16px;
+  background: var(--solid); color: var(--solid-ink); box-shadow: var(--shadow-pop); font-size: 14px; font-weight: 500; white-space: nowrap;
+  animation: bar-up .3s var(--ease-out) both;
+}
+.set-bar .sc-btn-ghost { color: var(--solid-ink); }
+@media (min-width: 1024px) { .set-bar { bottom: 24px; } }
+@keyframes bar-up { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* ---------- reports ---------- */
+.rp-views { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 14px; padding: 2px 16px; }
+.rp-views::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) { .rp-views { margin: 0 0 14px; padding: 2px 0; flex-wrap: wrap; } }
+.rp-view { display: inline-flex; align-items: center; flex: none; min-height: 44px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font-size: 14px; transition: background-color .18s, color .18s, border-color .18s; }
+.rp-view button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 6px 0 14px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.rp-view button.x { width: 36px; padding: 0; justify-content: center; border-radius: 50%; }
+.rp-view.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.rp-view.add { gap: 6px; padding: 0 14px; border-style: dashed; cursor: pointer; font: inherit; font-size: 14px; }
+.rp-view.add:hover { color: var(--accent); border-color: var(--accent); }
+@media (min-width: 1024px) { .rp-view, .rp-view button { min-height: 34px; font-size: 13px; } .rp-view button.x { width: 28px; } }
+.rp-controls { display: grid; gap: 12px; }
+.rp-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.rp-row > .sc-seg { flex: none; }
+.rp-who { min-width: 200px; flex: 1; }
+@media (min-width: 1024px) { .rp-who { flex: 0 0 240px; margin-left: auto; } }
+
+.rp-chart { position: relative; margin-top: 20px; height: 260px; }
+.rp-bars { display: grid; gap: 6px; align-items: end; height: 100%; overflow-x: auto; scrollbar-width: thin; }
+.rp-bars.dense { gap: 3px; }
+.rp-bar { display: flex; flex-direction: column; align-items: stretch; gap: 6px; height: 100%; min-width: 0; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; }
+.rp-col { position: relative; flex: 1; display: flex; align-items: flex-end; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.rp-col i { display: block; width: 100%; min-height: 2px; border-radius: 8px; background: var(--accent); transform-origin: bottom; animation: bar-grow .7s var(--ease-out) both; transition: background-color .15s, filter .15s; }
+.rp-bar.on .rp-col i, .rp-bar:focus-visible .rp-col i { background: var(--accent-hover); filter: brightness(1.08); }
+.rp-bar small { font-size: 12px; color: var(--text-3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.rp-bars.dense .rp-bar:nth-child(even) small { visibility: hidden; }
+@keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.rp-tip { position: absolute; top: 0; right: 0; padding: 10px 12px; border-radius: 12px; background: var(--solid); color: var(--solid-ink); box-shadow: var(--shadow-pop); font-size: 13px; display: grid; gap: 2px; pointer-events: none; animation: sc-fade .12s ease-out both; }
+.rp-tip span { opacity: .85; font-variant-numeric: tabular-nums; }

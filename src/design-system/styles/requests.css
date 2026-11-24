@@ -1,0 +1,80 @@
+/* Corrections, leave, approvals (PLAN.md 10, Veyla refs 09–10). Phone first. */
+
+/* right-side drawer from 1024px (BottomSheet side="right") */
+@media (min-width: 1024px) {
+  .sheet-root.drawer { display: block; padding: 0; background: rgba(8, 10, 14, .28); }
+  .sheet-root.drawer .sheet {
+    position: absolute; top: 12px; right: 12px; bottom: 12px; left: auto;
+    width: min(480px, calc(100vw - 24px)); max-height: none; border-radius: 22px; padding: 22px 22px 0;
+    display: flex; flex-direction: column; animation: drawer-in .24s cubic-bezier(.2, .8, .2, 1) both;
+  }
+  .sheet-root.drawer .sheet-body { flex: 1; overflow-y: auto; margin: 0 -22px; padding: 0 22px 16px; }
+  .sheet-root.drawer .sheet-foot { position: static; margin: 0 -22px; padding: 14px 22px 18px; border-top: 1px solid var(--border); background: var(--surface); }
+  .sheet-root.drawer .sheet-h h2 { font-size: 22px; }
+}
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- approvals list ---------- */
+.ap-bar { display: grid; gap: 12px; margin-bottom: 14px; }
+@media (min-width: 1024px) { .ap-bar { grid-template-columns: auto 1fr; align-items: end; gap: 20px; } .ap-bar .sc-pills { justify-content: flex-end; } }
+.ap-card { padding: 6px; }
+@media (min-width: 640px) { .ap-card { padding: 8px; } }
+.ap-list { list-style: none; margin: 0; padding: 0; }
+.ap-row { display: flex; align-items: center; gap: 8px; border-radius: 14px; }
+.ap-row + .ap-row { border-top: 1px solid var(--border); }
+.ap-row.on, .ap-row:hover { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.ap-open {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center;
+  min-height: 72px; padding: 12px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 14px; color: var(--text);
+}
+.ap-open .sc-person { grid-column: 1; }
+.ap-when { grid-column: 2; grid-row: 1; justify-self: end; font-size: 14px; color: var(--text-3); white-space: nowrap; }
+.ap-what { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; padding-left: 48px; }
+.ap-what b { display: block; font-size: 15px; font-weight: 500; }
+.ap-what small { display: block; font-size: 14px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); color: var(--text-2); }
+@media (min-width: 1024px) {
+  .ap-open { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) 120px; min-height: 64px; padding: 10px 12px; }
+  .ap-open .sc-person { grid-column: 1; }
+  .ap-what { grid-column: 2; grid-row: 1; padding-left: 0; }
+  .ap-what b { font-size: 13px; } .ap-what small { font-size: 12px; }
+  .ap-when { grid-column: 3; font-size: 12.5px; }
+}
+.ap-quick { display: flex; gap: 6px; padding-right: 10px; }
+.ap-q { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; }
+.ap-q.yes { background: var(--solid); color: var(--solid-ink); border-color: var(--solid); }
+.ap-q.no:hover { color: var(--red); border-color: var(--red); }
+.ap-q:disabled { opacity: .5; cursor: default; }
+
+/* ---------- drawer content ---------- */
+.ap-compare { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.ap-tile { background: var(--surface-2); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.ap-tile.new { background: var(--accent-soft); }
+.ap-tile small { display: block; font-size: 13px; color: var(--text-3); }
+.ap-tile b { display: block; margin: 2px 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.ap-tile.new b { color: var(--accent); }
+.ap-reason { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--amber-soft); color: var(--text); font-size: 15px; }
+.ap-timeline { list-style: none; margin: 0; padding: 0 0 0 18px; display: grid; gap: 12px; border-left: 2px solid var(--border); margin-left: 6px; }
+.ap-timeline li { position: relative; }
+.ap-timeline li::before { content: ''; position: absolute; left: -25px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong); }
+.ap-timeline li.now::before { border-color: var(--amber); }
+.ap-timeline li.approved::before { background: var(--green); border-color: var(--green); }
+.ap-timeline li.declined::before { background: var(--red); border-color: var(--red); }
+.ap-timeline b { display: block; font-size: 15px; font-weight: 500; }
+.ap-timeline small { display: block; font-size: 13px; color: var(--text-3); }
+@media (min-width: 1024px) {
+  .ap-tile b { font-size: 16px; } .ap-tile small, .ap-timeline small { font-size: 12px; }
+  .ap-reason { font-size: 13.5px; } .ap-timeline b { font-size: 13.5px; }
+}
+
+/* ---------- request lists (Leave page, pending card) ---------- */
+@media (min-width: 1024px) { .lv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.rq-list { list-style: none; margin: 0; padding: 0; }
+.rq-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.rq-item:first-child { border-top: 0; }
+.rq-main { min-width: 0; }
+.rq-main b { display: block; font-size: 16px; font-weight: 500; }
+.rq-main small { display: block; font-size: 14px; color: var(--text-3); }
+.rq-main .rq-note { color: var(--text-2); }
+.rq-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+@media (min-width: 1024px) { .rq-main b { font-size: 13.5px; } .rq-main small { font-size: 12px; } }

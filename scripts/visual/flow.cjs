@@ -1,0 +1,31 @@
+async page => {
+  const out = [];
+  await page.goto('http://localhost:5173/login'); await page.waitForTimeout(400);
+  await page.evaluate(() => localStorage.removeItem('shiftclock-demo-user'));
+  await page.goto('http://localhost:5173/admin/people'); await page.waitForTimeout(400);
+  out.push('guest /admin/people -> ' + new URL(page.url()).pathname);
+  await page.getByLabel('Username').fill('nobody');
+  await page.locator('#login-password').fill('x');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  out.push('bad user error: ' + await page.getByRole('alert').innerText());
+  await page.getByLabel('Username').fill('ali');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL('**/admin/people').catch(() => {});
+  await page.waitForTimeout(300);
+  out.push('employee after login (wanted /admin/people) -> ' + new URL(page.url()).pathname);
+  out.push('buttons: ' + (await page.getByRole('button').allInnerTexts()).join(' | ')); await page.locator('.sc-user').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await page.waitForTimeout(300);
+  out.push('after sign out -> ' + new URL(page.url()).pathname);
+  await page.getByLabel('Username').fill('manager');
+  await page.locator('#login-password').fill('x');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForTimeout(300);
+  await page.goto('http://localhost:5173/admin/settings'); await page.waitForTimeout(400);
+  out.push('manager /admin/settings -> ' + new URL(page.url()).pathname);
+  await page.goto('http://localhost:5173/admin/approvals'); await page.waitForTimeout(400);
+  out.push('manager /admin/approvals -> ' + new URL(page.url()).pathname);
+  await page.keyboard.press('Control+k'); await page.waitForTimeout(300);
+  out.push('cmdk open: ' + await page.locator('.w-cmdk.w-open').count());
+  return out.join('\n');
+}

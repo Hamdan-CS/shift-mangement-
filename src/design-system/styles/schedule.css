@@ -1,0 +1,163 @@
+/*
+ * Schedules (PLAN.md 6, 10b): employee week planner (Vernly ref 14),
+ * manager day view (Mendo ref 13) and week table. Phone first.
+ */
+
+/* ---------- week switcher + summary ---------- */
+.wk-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.wk-nav b { display: block; font-size: 17px; font-weight: 600; }
+.wk-nav small { display: block; font-size: 14px; color: var(--text-3); }
+.wk-nav .sc-iconbtn:disabled { opacity: .4; cursor: not-allowed; }
+.wk-sum { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.wk-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+@media (max-width: 399px) { .wk-acts { grid-template-columns: 1fr; } }
+@media (min-width: 1024px) {
+  .wk-nav b { font-size: 15px; } .wk-nav small { font-size: 12.5px; }
+  .wk-acts { display: flex; justify-content: flex-end; }
+}
+
+/* ---------- phone: one card per day ---------- */
+.wk-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wk-day { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 12px 12px 12px 14px; box-shadow: var(--shadow-card); }
+.wk-day.today { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.wk-day-h { display: flex; align-items: center; gap: 14px; }
+.wk-day-h small { display: block; margin-top: 6px; font-size: 14px; color: var(--text-3); }
+.wk-date { width: 44px; flex: none; text-align: center; }
+.wk-date span { display: block; font-size: 13px; color: var(--text-3); }
+.wk-date b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.wk-day.today .wk-date b { width: 36px; height: 36px; margin: 2px auto 0; line-height: 36px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 17px; }
+.wk-pills { display: grid; gap: 8px; margin-top: 12px; }
+.wk-pill {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%;
+  min-height: 52px; padding: 8px 12px; border-radius: 12px; text-align: left; cursor: pointer;
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-left: 3px solid var(--accent); color: var(--text);
+}
+.wk-pill:disabled { cursor: default; }
+.wk-pill b { font-size: 16px; font-weight: 600; }
+.wk-pill small { font-size: 14px; color: var(--text-2); }
+
+/* "Same every day" day picker */
+.wk-dayboxes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wk-dayboxes button {
+  min-height: 56px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-2);
+}
+.wk-dayboxes button span { font-size: 12px; }
+.wk-dayboxes button b { font-size: 16px; color: var(--text); }
+.wk-dayboxes button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.wk-dayboxes button[aria-pressed='true'] b { color: var(--accent-ink); }
+.wk-dayboxes button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* quick time presets in the shift sheet */
+.sc-preset {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font-size: 14px;
+}
+.sc-preset b { color: var(--text); font-weight: 500; }
+.sc-preset[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.sc-preset[aria-pressed='true'] b { color: var(--accent); }
+@media (min-width: 1024px) { .sc-preset { min-height: 32px; font-size: 12.5px; } }
+
+/* shared per-day bar (Vernly) */
+.wg-bar { height: 5px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.wg-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--text); }
+.today .wg-bar > i { background: var(--accent); }
+
+/* ---------- desktop: Vernly week grid ---------- */
+.wg { --gut: 56px; }
+.wg-head { display: grid; grid-template-columns: var(--gut) repeat(7, minmax(0, 1fr)); gap: 0; padding-bottom: 10px; }
+.wg-dh { padding: 6px 10px 8px; border-radius: 12px 12px 0 0; }
+.wg-dh.today { background: var(--accent-soft); }
+.wg-dl { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.wg-dl span { font-size: 13px; color: var(--text-2); }
+.wg-dl b { font-size: 15px; font-weight: 600; }
+.wg-dh.today .wg-dl b { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-size: 13px; }
+.wg-dh small { display: block; margin-top: 6px; font-size: 12px; color: var(--text-3); text-align: right; }
+.wg-body { max-height: 560px; overflow-y: auto; border-top: 1px solid var(--border); }
+.wg-grid { position: relative; display: grid; grid-template-columns: var(--gut) repeat(7, minmax(0, 1fr)); }
+.wg-gutter { position: relative; }
+.wg-gutter span { position: absolute; left: 0; right: 10px; transform: translateY(-50%); text-align: right; font-size: 12px; color: var(--text-3); }
+.wg-gutter span:first-child { transform: none; }
+.wg-col {
+  position: relative; border-left: 1px solid var(--border);
+  background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 100% 48px;
+}
+.wg-col.today { background-color: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.wg-slot {
+  position: absolute; left: 0; right: 0; border: 0; background: transparent; cursor: pointer;
+  display: grid; place-items: center; color: transparent;
+}
+.wg-slot:hover, .wg-slot:focus-visible { background: color-mix(in srgb, var(--accent-soft) 70%, transparent); color: var(--accent); }
+.wg-block {
+  position: absolute; left: 4px; right: 4px; z-index: 1; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 8px;
+  border-radius: 9px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 85%, var(--surface)); color: var(--text); text-align: left; cursor: pointer;
+}
+.wg-block b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wg-block small { font-size: 12px; color: var(--text-2); }
+.wg-block.edited { border-left-color: var(--violet); }
+.wg-now { position: absolute; left: -1px; right: 0; height: 2px; background: var(--text); z-index: 2; }
+.wg-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--text); }
+
+/* ---------- manager week table ---------- */
+.mw-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.mw-table th { font-size: 12px; font-weight: 500; color: var(--text-3); text-align: left; padding: 0 6px 10px; }
+.mw-table th.today { color: var(--accent); }
+.mw-table td { padding: 6px; border-top: 1px solid var(--border); vertical-align: top; }
+.mw-table td:first-child, .mw-table th:first-child { width: 220px; padding-left: 0; }
+.mw-table tfoot td { font-size: 12px; color: var(--text-3); }
+.mw-table tfoot td.gap { color: var(--red); font-weight: 600; }
+.mw-cell { display: grid; gap: 4px; min-height: 40px; }
+.mw-shift, .mw-add {
+  display: block; width: 100%; min-height: 44px; padding: 5px 7px; border-radius: 10px; text-align: left; cursor: pointer;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+@media (min-width: 1024px) {
+  .mw-shift { min-height: 30px; font-size: 12px; border-radius: 8px; } .mw-add { min-height: 30px; }
+  /* with a mouse, the extra "+" under a planned day only shows on hover */
+  .mw-shift ~ .mw-add { opacity: 0; min-height: 22px; }
+  .mw-table td:hover .mw-add, .mw-add:focus-visible { opacity: 1; }
+}
+.mw-shift { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
+.mw-shift.edited { border-left: 3px solid var(--violet); }
+.mw-add { border: 1px dashed var(--border-strong); background: transparent; color: var(--text-3); display: grid; place-items: center; }
+.mw-add:hover { border-color: var(--accent); color: var(--accent); }
+
+/* manager week on phones: one card per person */
+.mw-cards { display: grid; gap: 10px; }
+.mw-card-days { display: grid; gap: 6px; margin-top: 12px; }
+.mw-card-day { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 12px; background: var(--surface-2); border: 0; width: 100%; text-align: left; cursor: pointer; }
+.mw-card-day > span:first-child { width: 72px; flex: none; font-size: 14px; color: var(--text-2); }
+.mw-card-day b { font-size: 15px; font-weight: 600; }
+.mw-card-day small { font-size: 14px; color: var(--text-3); }
+
+/* ---------- manager day view (Mendo ref 13) ---------- */
+.dv { --hour: 64px; --gut: 56px; overflow-x: auto; overscroll-behavior-x: contain; }
+.dv-inner { display: grid; grid-template-columns: var(--gut) repeat(var(--cols), minmax(200px, 1fr)); min-width: 100%; width: max-content; }
+.dv-head { position: sticky; top: 0; z-index: 3; background: var(--surface); padding: 4px 10px 12px; border-bottom: 1px solid var(--border); }
+.dv-head b { display: block; font-size: 16px; font-weight: 600; }
+.dv-head small { display: block; font-size: 13px; color: var(--text-3); }
+.dv-corner { position: sticky; left: 0; z-index: 4; background: var(--surface); border-bottom: 1px solid var(--border); }
+.dv-gutter { position: sticky; left: 0; z-index: 2; background: var(--surface); }
+.dv-gutter span { position: absolute; right: 10px; transform: translateY(-50%); font-size: 12px; color: var(--text-3); }
+.dv-col { position: relative; border-left: 1px solid var(--border); background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px); background-size: 100% var(--hour); }
+.dv-block {
+  position: absolute; left: 6px; right: 6px; z-index: 1; overflow: hidden;
+  display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; min-height: 30px;
+  border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  text-align: left; cursor: pointer; font-size: 13px;
+}
+.dv-block .t { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dv-block b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-block .dot { margin-left: auto; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--text-3); }
+.dv-block.working { border-color: color-mix(in srgb, var(--green) 50%, transparent); }
+.dv-block.working .dot { background: var(--green); }
+.dv-block.late, .dv-block.absent { border: 2px solid var(--red); }
+.dv-block.late .dot, .dv-block.absent .dot { background: var(--red); }
+.dv-block.upcoming .dot { background: var(--accent); }
+.dv-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--red); z-index: 2; pointer-events: none; }
+.dv-now-label { position: absolute; right: 4px; transform: translateY(-50%); z-index: 3; padding: 2px 6px; border-radius: 6px; background: var(--red); color: #fff; font-size: 12px; font-weight: 600; }
+.dv-empty { grid-column: 2 / -1; }

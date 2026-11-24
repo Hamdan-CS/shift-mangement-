@@ -1,0 +1,106 @@
+/*
+ * ShiftClock design tokens — Amplo direction (design-refs 01–05).
+ * Light grey page, white rounded cards, one royal-blue accent, full dark mode.
+ * Every colour in the app comes from here; Tailwind maps to these too.
+ */
+
+:root,
+:root.light {
+  color-scheme: light;
+
+  /* surfaces */
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;     /* inset: segmented controls, tiles, inputs */
+  --surface-3: #eceef1;     /* hover on inset */
+  --border: #ebecef;
+  --border-strong: #dfe1e6;
+
+  /* text */
+  --text: #0f1115;
+  --text-2: #565c69;
+  --text-3: #8b909b;
+
+  /* accent: royal blue */
+  --accent: #2f5bea;
+  --accent-hover: #244ed8;
+  --accent-soft: #e9eefd;
+  --accent-ink: #ffffff;
+  --accent-fill: rgba(47, 91, 234, 0.12); /* faint chart fill */
+
+  /* status */
+  --green: #1f9d55;
+  --green-soft: #e5f5eb;
+  --amber: #b7791f;
+  --amber-soft: #fdf3df;
+  --red: #e0383e;
+  --red-soft: #fdeaea;
+  --violet: #6e56cf;
+  --violet-soft: #efebfc;
+
+  /* dark chips (Join buttons, toast) */
+  --solid: #111216;
+  --solid-ink: #ffffff;
+
+  /* shape */
+  --r-card: 18px;
+  --r-ctl: 10px;
+  --r-tile: 12px;
+
+  /* elevation */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.03), 0 10px 30px -18px rgba(16, 24, 40, 0.12);
+  --shadow-pop: 0 2px 6px rgba(16, 24, 40, 0.06), 0 24px 48px -16px rgba(16, 24, 40, 0.22);
+  --shadow-ctl: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --ring: 0 0 0 3px rgba(47, 91, 234, 0.22);
+
+  /* avatar tints (initials) */
+  --tint-1: #fbefd8; --tint-1-ink: #8a5a12;
+  --tint-2: #fde3e1; --tint-2-ink: #9b2f2a;
+  --tint-3: #e3e9fd; --tint-3-ink: #2a45a8;
+  --tint-4: #e1f3e8; --tint-4-ink: #1d6b40;
+  --tint-5: #efe8fb; --tint-5-ink: #5a3f9e;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --bg: #0c0d10;
+  --surface: #15161a;
+  --surface-2: #1c1e23;
+  --surface-3: #24262c;
+  --border: #23252b;
+  --border-strong: #2e3138;
+
+  --text: #f3f4f6;
+  --text-2: #a4a9b3;
+  --text-3: #6f747e;
+
+  --accent: #5b7bf6;
+  --accent-hover: #6d89f8;
+  --accent-soft: rgba(91, 123, 246, 0.16);
+  --accent-ink: #ffffff;
+  --accent-fill: rgba(91, 123, 246, 0.18);
+
+  --green: #3ccf7a;
+  --green-soft: rgba(60, 207, 122, 0.14);
+  --amber: #f0b44c;
+  --amber-soft: rgba(240, 180, 76, 0.14);
+  --red: #ff6369;
+  --red-soft: rgba(255, 99, 105, 0.14);
+  --violet: #a28bf5;
+  --violet-soft: rgba(162, 139, 245, 0.16);
+
+  --solid: #f3f4f6;
+  --solid-ink: #0c0d10;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.4), 0 24px 48px -16px rgba(0, 0, 0, 0.7);
+  --shadow-ctl: none;
+  --ring: 0 0 0 3px rgba(91, 123, 246, 0.32);
+
+  --tint-1: rgba(240, 180, 76, 0.16); --tint-1-ink: #f0c47a;
+  --tint-2: rgba(255, 99, 105, 0.16); --tint-2-ink: #ff9a9e;
+  --tint-3: rgba(91, 123, 246, 0.18); --tint-3-ink: #a3b6ff;
+  --tint-4: rgba(60, 207, 122, 0.15); --tint-4-ink: #7fe0a8;
+  --tint-5: rgba(162, 139, 245, 0.18); --tint-5-ink: #c7b8ff;
+}
