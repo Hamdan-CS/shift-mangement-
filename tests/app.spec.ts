@@ -82,4 +82,40 @@ test.describe('desktop', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Save view' }).click();
     await expect(page.getByRole('button', { name: 'Weekly hours', exact: true })).toBeVisible();
   });
+
+  test('everyone can set their own email in My settings', async ({ page }) => {
+    await signIn(page, 'ali');
+    await page.goto('/account');
+    await page.getByLabel('Your email').fill('ali@example.com');
+    await page.getByRole('switch', { name: 'Daily summary' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText(/Saved\. Your hours emails go to ali@example\.com/)).toBeVisible();
+  });
+
+  test('copy upcoming schedule in chat format', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await signIn(page, 'ali');
+    await page.goto('/schedule');
+    await page.getByRole('button', { name: 'Copy schedule' }).click();
+    await expect(page.getByText('Schedule copied')).toBeVisible();
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    expect(text).toContain('*Name:* Ali Hassan');
+    expect(text).toContain('*My Weekly Work Availability*');
+    expect(text).toMatch(/- \*Monday:\* /);
+    expect(text).toMatch(/- \*Sunday:\* /);
+    expect(text).toContain('*Total:*');
+  });
+
+  test('copy worked hours with pay in chat format', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await signIn(page, 'ali');
+    await page.goto('/pay');
+    await page.getByRole('button', { name: /Copy hours/ }).click();
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    expect(text).toContain('*Name:* Ali Hassan');
+    expect(text).toContain('*My Work Hours*');
+    expect(text).toMatch(/- \*Monday:\* /);
+    expect(text).toContain('*Gross:*');
+    expect(text).toContain('*Net pay:*');
+  });
 });

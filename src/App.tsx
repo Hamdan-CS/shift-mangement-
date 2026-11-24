@@ -29,6 +29,7 @@ const PersonPage = lazy(() => import('@/pages/PersonPage').then((m) => ({ defaul
 const TimesheetsPage = lazy(() => import('@/pages/TimesheetsPage').then((m) => ({ default: m.TimesheetsPage })));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })));
 const TodayPage = lazy(() => import('@/pages/TodayPage').then((m) => ({ default: m.TodayPage })));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
 
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="/admin/reports" element={<RoleRoute allowed={['owner', 'manager']}><ReportsPage /></RoleRoute>} />
               <Route path="/admin/settings" element={<RoleRoute allowed={['owner']}><SettingsPage /></RoleRoute>} />
               <Route path="/history" element={<RoleRoute allowed={['employee', 'manager']}><HistoryPage /></RoleRoute>} />
+              <Route path="/account" element={<AccountPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

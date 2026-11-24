@@ -12,7 +12,7 @@ import type { Settings } from '@/types';
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const ZONES = ['Europe/Warsaw', 'Europe/London', 'Europe/Berlin', 'Europe/Paris', 'Europe/Madrid', 'Europe/Rome', 'Europe/Kyiv', 'Asia/Dubai', 'Asia/Amman', 'Asia/Riyadh', 'America/New_York', 'UTC'];
 const CURRENCIES = ['PLN', 'EUR', 'GBP', 'USD', 'AED', 'SAR', 'JOD'];
-const JOB: Record<string, string> = { daily: 'Daily summary', owner_daily: 'Owner daily', owner_weekly: 'Owner weekly', reminder: 'Schedule reminder', missing: 'Schedule missing', instant: 'Notification', test: 'Test' };
+const JOB: Record<string, string> = { daily: 'Daily summary', staff_weekly: 'Weekly summary', owner_daily: 'Owner daily', owner_weekly: 'Owner weekly', reminder: 'Schedule reminder', missing: 'Schedule missing', instant: 'Notification', test: 'Test' };
 const t5 = (t: string) => (t ?? '').slice(0, 5);
 
 /** "/admin/settings" (owner): company, working day, schedule deadline, clock rules, emails. */

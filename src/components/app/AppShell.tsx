@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, ChevronRight, KeyRound, LogOut, Plus, QrCode, Search, Settings as SettingsIcon, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, ChevronRight, KeyRound, LogOut, Plus, QrCode, Search, Settings as SettingsIcon, Moon, Sun, UserCog } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/design-system/ThemeProvider';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
@@ -78,6 +78,7 @@ export function AppShell() {
     ...(role === 'owner' ? [{ label: 'Settings', hint: '/admin/settings', run: () => navigate('/admin/settings') }] : []),
     ...newActions.map((a) => ({ label: a.label, hint: 'Action', run: () => navigate(a.to) })),
     { label: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', hint: 'Theme', run: toggleTheme },
+    { label: 'My settings (email)', hint: 'Account', run: () => navigate('/account') },
     { label: 'Change password', hint: 'Account', run: () => navigate('/reset-password') },
     { label: 'Sign out', hint: 'Account', run: () => { void doSignOut(); } },
   ], [top, role, newActions, theme, toggleTheme, navigate, doSignOut]);
@@ -122,6 +123,7 @@ export function AppShell() {
       <button type="button" className="sheet-row" onClick={() => { toggleTheme(); }}>
         {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}<span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
       </button>
+      <button type="button" className="sheet-row" onClick={() => go('/account')}><UserCog size={20} /><span>My settings</span><small className="end">Email</small></button>
       <button type="button" className="sheet-row" onClick={() => go('/reset-password')}><KeyRound size={20} /><span>Change password</span><ChevronRight size={18} className="end" /></button>
       <button type="button" className="sheet-row danger" onClick={() => { setSheet(null); void doSignOut(); }}><LogOut size={20} /><span>Sign out</span></button>
     </>
@@ -191,6 +193,7 @@ export function AppShell() {
                     <button type="button" role="menuitem" onClick={() => { setMenu(null); toggleTheme(); }}>
                       {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                     </button>
+                    <button type="button" role="menuitem" onClick={() => go('/account')}><UserCog size={15} /> My settings</button>
                     <button type="button" role="menuitem" onClick={() => go('/reset-password')}><KeyRound size={15} /> Change password</button>
                     <button type="button" role="menuitem" onClick={() => { setMenu(null); void doSignOut(); }}><LogOut size={15} /> Sign out</button>
                   </div>

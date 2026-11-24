@@ -19,9 +19,11 @@ A short guide for whoever runs ShiftClock day to day. Everything technical lives
 2. **Turn off public sign-up** in Supabase: Authentication → Sign In / Providers → "Allow new users to sign up" → off.
 3. **Settings** (`/admin/settings`): company name, currency, timezone, working day, schedule deadline,
    auto clock-out hours, Start/Finish button on or off, email times.
-4. **People**: add the real staff (owner only), set each person's hourly rate, overtime rule, and an
-   **Email for reports and alerts** (logins like `ali@shiftclock.local` are not real mailboxes).
-5. **Locations & QR**: add the workplace, open the kiosk screen on a tablet by the door, or print the code.
+4. **People**: add the real staff (owner only) and set each person's hourly rate and overtime rule.
+5. **Emails per person**: everyone opens **My settings** (account menu, top right / bottom sheet) and adds
+   their own email, and picks the daily and/or weekly hours summary. Logins like `ali@shiftclock.local`
+   are not real mailboxes. The owner can also fill it in on the person's page.
+6. **Locations & QR**: add the workplace, open the kiosk screen on a tablet by the door, or print the code.
 
 ## Turn on emails (Resend)
 
@@ -44,12 +46,21 @@ What gets sent (all in company time, times set on Settings):
 
 | Email | To | When |
 |---|---|---|
-| Daily summary | each person who worked | Staff daily summary time (23:00) |
+| Daily summary | each person who worked (if they turned it on) | Staff daily summary time (23:00) |
+| Weekly summary: hours per day, total, gross, net | each person who worked that week (if on) | Weekly day + time (Sunday 23:30) |
 | Owner daily + Excel | owner, managers, extra recipients | Owner daily time (23:15) |
 | Owner weekly + Excel | owner, managers, extra recipients | Weekly day + time (Sunday 23:30) |
 | Schedule reminder | people who haven't submitted next week | Deadline day, reminder time (12:00) |
 | Schedule missing | managers | Deadline day, after the deadline |
 | Approval needed / result / shift changed / shift auto-closed | the person concerned | Within 5 minutes |
+
+## Copy to chat
+
+- **Schedule → Copy schedule**: the week on screen, one line per day ("Not available" on free days).
+- **Pay → Copy hours & pay**: hours per day with clock-in/out and pay, then total, overtime, gross,
+  deductions and net.
+
+Both use *bold* chat formatting, so they look right pasted into WhatsApp or Messenger.
 
 ## Own domain (optional)
 

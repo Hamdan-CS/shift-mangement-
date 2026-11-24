@@ -8,6 +8,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  workers: 2, // low-memory laptops: more workers made tests time out
   reporter: 'list',
   timeout: 30_000,
   use: {

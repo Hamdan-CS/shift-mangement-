@@ -42,6 +42,7 @@ async page => {
     { name: 'entry-sheet', path: '/admin/timesheets', user: 'demo-manager', open: 'entry' },
     { name: 'settings', path: '/admin/settings', user: 'demo-owner' },
     { name: 'reports', path: '/admin/reports', user: 'demo-manager' },
+    { name: 'account', path: '/account', user: 'demo-ali' },
   ];
   const sizes = [
     { id: '360', w: 360, h: 740 },

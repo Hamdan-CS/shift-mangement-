@@ -1,50 +1,82 @@
 import type { PayDay, PayRow, Deduction } from '@/services/pay';
+import { deductionAmount } from '@/services/pay';
 import { formatHours, formatMoney } from './labels';
-import { clockTime } from './tz';
 
 /**
- * Plain-text hours + pay summary (PLAN.md 8b). One function, used by every
- * Copy button and (Phase 8) the daily email, so they always match:
+ * Copy-to-chat text (PLAN.md 8b). *bold* and _italic_ use WhatsApp / Messenger
+ * formatting, so the message looks right when pasted:
  *
- *   Ali Hassan — Week 24–30 Nov 2026
- *   Mon 24 Nov  09:02 – 17:31  8h 29m  254,50 zł
- *   Wed 26 Nov  Off
- *   Total: 40h 12m (overtime 0h 12m)
- *   Gross: 1212,00 zł
- *   Deductions: Uniform –50,00 zł
- *   Net: 1162,00 zł
+ *   *Name:* Ali Hassan
+ *
+ *   *My Weekly Work Availability*
+ *   _Week of 30 Nov – 6 Dec 2026_
+ *
+ *   - *Monday:* 9:00 AM – 5:00 PM
+ *   - *Tuesday:* Not available
  */
-export function formatHoursSummary(opts: {
-  name: string; label: string; from: string; to: string; days: PayDay[]; pay: PayRow | null;
-  deductions: Deduction[]; currency: string; timeZone: string; showOffDays?: boolean;
+
+const WEEKDAY = (d: string, long = true) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', long ? { weekday: 'long', timeZone: 'UTC' } : { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+const span = (from: string, to: string) => {
+  const a = new Date(`${from}T12:00:00Z`), b = new Date(`${to}T12:00:00Z`);
+  const sameMonth = a.getUTCMonth() === b.getUTCMonth();
+  const f = a.toLocaleDateString('en-GB', { day: 'numeric', ...(sameMonth ? {} : { month: 'short' }), timeZone: 'UTC' });
+  return `${f} – ${b.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
+};
+
+/** '13:30' or '13:30:00' → '1:30 PM' */
+export function time12(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h % 24 >= 12 ? 'PM' : 'AM'}`;
+}
+/** An instant → '1:30 PM' in company time. */
+export function clock12(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+}
+
+/** Upcoming week from the schedule: one line per day, "Not available" when free. */
+export function formatAvailability(opts: { name: string; weekStart: string; shifts: { date: string; start_time: string; end_time: string }[] }): string {
+  const { name, weekStart, shifts } = opts;
+  const lines = [`*Name:* ${name}`, '', '*My Weekly Work Availability*', `_Week of ${span(weekStart, addDays(weekStart, 6))}_`, ''];
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i);
+    const mine = shifts.filter((s) => s.date === d).sort((a, b) => a.start_time.localeCompare(b.start_time));
+    for (const s of mine) { const [sh, sm] = s.start_time.split(':').map(Number); const [eh, em] = s.end_time.split(':').map(Number); total += eh * 60 + em - (sh * 60 + sm); }
+    lines.push(`- *${WEEKDAY(d)}:* ${mine.length ? mine.map((s) => `${time12(s.start_time)} – ${time12(s.end_time)}`).join(', ') : 'Not available'}`);
+  }
+  lines.push('', `*Total:* ${formatHours(total)}`);
+  return lines.join('\n');
+}
+
+/** Hours actually worked in a period, with pay. A week lists every day; longer periods list worked days only. */
+export function formatWorked(opts: {
+  name: string; from: string; to: string; days: PayDay[]; pay: PayRow | null;
+  deductions: Deduction[]; currency: string; timeZone: string;
 }): string {
-  const { name, label, from, to, days, pay, deductions, currency, timeZone } = opts;
-  const lines = [`${name} — ${label}`];
-  const byDay = new Map(days.map((d) => [d.day, d]));
+  const { name, from, to, days, pay, deductions, currency, timeZone } = opts;
+  const money = (n: number) => formatMoney(n, currency);
   const rate = pay?.rate ?? 0;
-  const dayCount = Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000) + 1;
-  const showOff = opts.showOffDays ?? dayCount <= 14;
-  for (let i = 0; i < dayCount; i++) {
-    const dt = new Date(`${from}T12:00:00Z`); dt.setUTCDate(dt.getUTCDate() + i);
-    const key = dt.toISOString().slice(0, 10);
-    const label2 = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-    const d = byDay.get(key);
-    if (d) {
-      const span = `${clockTime(d.first_in, timeZone)} – ${d.last_out ? clockTime(d.last_out, timeZone) : 'now'}`;
-      lines.push(`${label2.padEnd(10)}  ${span}  ${formatHours(d.minutes)}  ${formatMoney((rate * d.minutes) / 60, currency)}`);
-    } else if (showOff) {
-      lines.push(`${label2.padEnd(10)}  Off`);
-    }
+  const count = Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000) + 1;
+  const week = count <= 7;
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  const lines = [`*Name:* ${name}`, '', '*My Work Hours*', `_${week ? 'Week of ' : ''}${span(from, to)}_`, ''];
+  for (let i = 0; i < count; i++) {
+    const d = addDays(from, i);
+    const w = byDay.get(d);
+    const label = week ? WEEKDAY(d) : WEEKDAY(d, false);
+    if (w) lines.push(`- *${label}:* ${clock12(w.first_in, timeZone)} – ${w.last_out ? clock12(w.last_out, timeZone) : 'now'} · ${formatHours(w.minutes)} · ${money((rate * w.minutes) / 60)}`);
+    else if (week) lines.push(`- *${label}:* Not worked`);
   }
-  if (pay) {
-    lines.push(`Total: ${formatHours(pay.worked_minutes)}${pay.overtime_minutes ? ` (overtime ${formatHours(pay.overtime_minutes)})` : ''}`);
-    lines.push(`Gross: ${formatMoney(pay.gross, currency)}`);
-    if (pay.deductions > 0) {
-      const names = deductions.map((x) => x.name).join(', ');
-      lines.push(`Deductions${names ? `: ${names}` : ''} –${formatMoney(pay.deductions, currency)}`);
-    }
-    lines.push(`Net: ${formatMoney(pay.net, currency)}`);
-  }
+  if (!week && days.length === 0) lines.push('No hours in this period.');
+  lines.push('');
+  lines.push(`*Total hours:* ${formatHours(pay?.worked_minutes ?? 0)}`);
+  if (pay?.overtime_minutes) lines.push(`*Overtime:* ${formatHours(pay.overtime_minutes)} (×${pay.overtime_multiplier})`);
+  if (rate) lines.push(`*Rate:* ${money(rate)}/h`);
+  lines.push(`*Gross:* ${money(pay?.gross ?? 0)}`);
+  const ded = deductions.map((x) => ({ x, amt: deductionAmount(x, pay?.gross ?? 0, from, to) })).filter((d) => d.amt > 0);
+  if ((pay?.deductions ?? 0) > 0) lines.push(`*Deductions:* −${money(pay!.deductions)}${ded.length ? ` (${ded.map((d) => d.x.name).join(', ')})` : ''}`);
+  lines.push(`*Net pay:* ${money(pay?.net ?? 0)}`);
   return lines.join('\n');
 }
 

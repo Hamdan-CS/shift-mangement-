@@ -6,7 +6,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { deductionAmount, fetchDeductions, fetchPayDays, fetchPayReport, type Deduction, type PayDay, type PayRow } from '@/services/pay';
 import { WBox, WButton, WKpis, WPageHeader } from '@/components/app/ui';
 import { usePeriod } from '@/components/pay/PeriodPicker';
-import { copyText, formatHoursSummary } from '@/utils/summary';
+import { copyText, formatWorked } from '@/utils/summary';
 import { formatHours, formatMoney } from '@/utils/labels';
 import { notify } from '@/utils/notify';
 import { clockTime } from '@/utils/tz';
@@ -42,7 +42,7 @@ export function PayPage() {
 
   const copy = async () => {
     if (!profile || !days) return;
-    const text = formatHoursSummary({ name: profile.full_name, label: period.label, from: period.from, to: period.to, days, pay, deductions: deds, currency, timeZone: tz });
+    const text = formatWorked({ name: profile.full_name, from: period.from, to: period.to, days, pay, deductions: deds, currency, timeZone: tz });
     if (await copyText(text)) { navigator.vibrate?.(20); notify.success('Copied'); } else notify.error('Could not copy. Select the text and copy it by hand.');
   };
 
@@ -53,8 +53,8 @@ export function PayPage() {
     <>
       <WPageHeader
         title="Pay"
-        subtitle="Your hours, gross, deductions and net. Copy it for your own notes."
-        actions={<WButton onClick={copy} disabled={loading}><Copy size={17} /> Copy</WButton>}
+        subtitle="Your hours, gross, deductions and net. Copy sends it ready to paste in a chat."
+        actions={<WButton onClick={copy} disabled={loading}><Copy size={17} /> Copy hours &amp; pay</WButton>}
       />
       <div className="mb-4">{picker}</div>
       <div className="sc-grid pay-grid">

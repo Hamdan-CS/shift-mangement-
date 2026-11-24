@@ -10,6 +10,7 @@
 .wk-nav .sc-iconbtn:disabled { opacity: .4; cursor: not-allowed; }
 .wk-sum { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wk-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+@media (max-width: 1023px) { .wk-acts > :first-child:nth-last-child(3) { grid-column: 1 / -1; } }
 @media (max-width: 399px) { .wk-acts { grid-template-columns: 1fr; } }
 @media (min-width: 1024px) {
   .wk-nav b { font-size: 15px; } .wk-nav small { font-size: 12.5px; }

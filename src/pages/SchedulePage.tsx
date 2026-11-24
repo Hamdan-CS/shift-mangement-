@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Copy, Lock, Plus, Repeat, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardCopy, Copy, Lock, Plus, Repeat, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClock } from '@/contexts/ClockContext';
 import { useSettings } from '@/hooks/useSettings';
@@ -15,6 +15,7 @@ import { WeekGrid } from '@/components/schedule/WeekGrid';
 import { dayMinutes, dayParts } from '@/components/schedule/days';
 import { copyWeek, deleteShift, ensureWeek, fetchWeek, hm, saveShift, ScheduleError, setWeekStatus, shiftDate, toMin } from '@/services/schedules';
 import { formatHours } from '@/utils/labels';
+import { copyText, formatAvailability } from '@/utils/summary';
 import { notify } from '@/utils/notify';
 import { dayKey, minutesOfDay, startOfWeek } from '@/utils/tz';
 import type { ScheduleShift, ScheduleWeek, WeekStatus } from '@/types';
@@ -58,6 +59,12 @@ export function SchedulePage() {
   const status = STATUS[week?.status ?? 'none'];
 
   const deadlineDow = settings?.schedule_deadline_dow ?? 4;
+  // "Copy schedule": the week on screen, ready to paste in a chat
+  const shareWeek = async () => {
+    if (!profile || !shifts) return;
+    const text = formatAvailability({ name: profile.full_name, weekStart, shifts });
+    if (await copyText(text)) notify.success('Schedule copied. Paste it in your chat.'); else notify.error('Could not copy.');
+  };
   const deadlineDate = shiftDate(weekStart, -7 + ((deadlineDow + 6) % 7));
   const deadline = `${DOW[deadlineDow]} ${dayParts(deadlineDate).num} ${new Date(`${deadlineDate}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })}, ${(settings?.schedule_deadline_time ?? '18:00').slice(0, 5)}`;
   const weekLabel = weekStart === thisWeek ? 'This week' : weekStart === shiftDate(thisWeek, 7) ? 'Next week' : weekStart < thisWeek ? 'Past week' : 'Later';
@@ -159,12 +166,11 @@ export function SchedulePage() {
               </div>
               <WChip tone={status.tone}>{status.label}</WChip>
             </div>
-            {!locked && (
-              <div className="wk-acts">
-                <WButton tone="secondary" onClick={copyLast} disabled={busy !== null || shifts === null}><Copy size={17} /> Copy last week</WButton>
-                <WButton tone="secondary" onClick={() => setRepeatOpen(true)} disabled={busy !== null || shifts === null}><Repeat size={17} /> Same every day</WButton>
-              </div>
-            )}
+            <div className="wk-acts">
+              <WButton tone="secondary" onClick={shareWeek} disabled={shifts === null}><ClipboardCopy size={17} /> Copy schedule</WButton>
+              {!locked && <WButton tone="secondary" onClick={copyLast} disabled={busy !== null || shifts === null}><Copy size={17} /> Copy last week</WButton>}
+              {!locked && <WButton tone="secondary" onClick={() => setRepeatOpen(true)} disabled={busy !== null || shifts === null}><Repeat size={17} /> Same every day</WButton>}
+            </div>
             {locked && <div className="sc-alert info mt-4"><Lock size={16} className="mt-0.5 shrink-0" /><span>This week is locked. Your manager can still change it.</span></div>}
           </section>
 

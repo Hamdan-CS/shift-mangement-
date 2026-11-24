@@ -4,7 +4,7 @@ import type { Profile, Settings, TimeEntry } from '@/types';
  * Dev-only demo data (VITE_DEMO_AUTH=1). Mirrors scripts/seed.mjs so screens
  * look the same with or without a Supabase project. Never used in production builds.
  */
-const base = { avatar_url: null, notify_email: null, overtime_after_hours: 40, overtime_multiplier: 1.5, active: true, created_at: '2026-11-01T08:00:00Z' };
+const base = { avatar_url: null, notify_email: null, email_daily: true, email_weekly: true, overtime_after_hours: 40, overtime_multiplier: 1.5, active: true, created_at: '2026-11-01T08:00:00Z' };
 
 export const DEMO_PROFILES: Profile[] = [
   { ...base, id: 'demo-owner', username: 'owner', full_name: 'Sara Mansour', role: 'owner', job_title: 'Owner', hourly_rate: null },

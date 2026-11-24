@@ -5,6 +5,7 @@
 //   instant       → emails for new notifications (approval needed, request result,
 //                   shift changed, shift closed automatically)
 //   daily         → each person who worked today: in/out, hours, earned   (settings.daily_email_time)
+//   staff_weekly  → each person who worked this week: hours per day, total, gross, net (weekly time)
 //   owner_daily   → owner + managers + report_recipients, Excel of the day (settings.owner_daily_time)
 //   owner_weekly  → the same for the whole week, Excel attached          (weekly_email_dow / _time)
 //   reminder      → people who haven't submitted next week (deadline day, reminder_time)
@@ -64,7 +65,7 @@ function page(title: string, intro: string, inner: string, cta?: { href: string;
 <p style="margin:0;color:#565c69;font-size:14px;line-height:1.5">${intro}</p></td></tr>
 <tr><td style="padding:16px 24px 8px">${inner}</td></tr>
 ${cta ? `<tr><td style="padding:8px 24px 24px"><a href="${cta.href}" style="display:inline-block;background:#2f5bea;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 18px;border-radius:10px">${esc(cta.label)}</a></td></tr>` : ''}
-</table><p style="color:#8b909b;font-size:12px;margin:14px 0 0">Sent by ShiftClock. Times are in company time.</p></td></tr></table></body></html>`;
+</table><p style="color:#8b909b;font-size:12px;margin:14px 0 0">Sent by ShiftClock. Times are in company time. Change which emails you get under My settings.</p></td></tr></table></body></html>`;
 }
 function table(head: string[], rows: (string | number)[][], right: number[] = []) {
   const th = head.map((h, i) => `<th style="text-align:${right.includes(i) ? 'right' : 'left'};font-size:12px;font-weight:500;color:#8b909b;padding:8px 6px;border-bottom:1px solid #ebecef">${esc(h)}</th>`).join('');
@@ -102,7 +103,7 @@ async function send(s: Settings, job: string, ref: string, to: string[], subject
 
 /* ---------------- data ---------------- */
 async function people() {
-  const { data } = await admin.from('profiles').select('id, full_name, role, active, notify_email, hourly_rate').eq('active', true);
+  const { data } = await admin.from('profiles').select('id, full_name, role, active, notify_email, hourly_rate, email_daily, email_weekly').eq('active', true);
   return (data ?? []) as Row[];
 }
 function managersTo(ps: Row[], s: Settings) {
@@ -150,10 +151,38 @@ async function daily(s: Settings, date: string) {
   let n = 0;
   for (const d of (days ?? []) as Row[]) {
     const p = ps.find((x) => x.id === d.user_id);
-    if (!p?.notify_email) continue;
+    if (!p?.notify_email || p.email_daily === false) continue;
     const earned = (Number(p.hourly_rate ?? 0) * d.minutes) / 60;
     const inner = table(['', ''], [['Clock in', hm(d.first_in, s.timezone)], ['Clock out', d.last_out ? hm(d.last_out, s.timezone) : 'still working'], ['Break', `${d.break_minutes} min`], ['Hours', `<b>${hours(d.minutes)}</b>`], ['Earned today', `<b>${money(earned)}</b>`]], [1]);
     n += await send(s, 'daily', date, [p.notify_email], `Your day: ${hours(d.minutes)}`, page(`Your day, ${longDay(date)}`, `Here is today at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, inner, { href: `${APP}/history`, label: 'Request a correction' }));
+  }
+  return n;
+}
+
+async function staffWeekly(s: Settings, from: string, to: string) {
+  const [{ data: rep }, { data: days }, ps] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to }), people()]);
+  const money = moneyF(s);
+  let n = 0;
+  for (const r of (rep ?? []) as Row[]) {
+    const p = ps.find((x) => x.id === r.user_id);
+    if (!p?.notify_email || p.email_weekly === false || !r.worked_minutes) continue;
+    const mine = ((days ?? []) as Row[]).filter((d) => d.user_id === r.user_id);
+    const rows: (string | number)[][] = [];
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(from, i);
+      const d = mine.find((x) => x.day === day);
+      const label = new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+      rows.push(d ? [label, `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}`, hours(d.minutes), money((Number(r.rate ?? 0) * d.minutes) / 60)] : [label, '—', '—', '—']);
+    }
+    rows.push(['<b>Total</b>', '', `<b>${hours(r.worked_minutes)}</b>`, `<b>${money(Number(r.gross))}</b>`]);
+    const sumUp = table(['', ''], [
+      ...(r.overtime_minutes ? [['Overtime', hours(r.overtime_minutes)]] : []),
+      ['Gross', money(Number(r.gross))],
+      ...(Number(r.deductions) ? [['Deductions', `−${money(Number(r.deductions))}`]] : []),
+      ['Net pay', `<b>${money(Number(r.net))}</b>`],
+    ], [1]);
+    n += await send(s, 'staff_weekly', from, [p.notify_email], `Your week: ${hours(r.worked_minutes)}, net ${money(Number(r.net))}`,
+      page(`Your week, ${from} to ${to}`, `Here are your hours at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, table(['Day', 'In – out', 'Hours', 'Earned'], rows, [2, 3]) + '<div style="height:14px"></div>' + sumUp, { href: `${APP}/pay`, label: 'Open my pay' }));
   }
   return n;
 }
@@ -242,7 +271,7 @@ Deno.serve(async (req) => {
     const { data: me } = await admin.from('profiles').select('role, notify_email, full_name').eq('id', who.user.id).single();
     if (me?.role !== 'owner') return json(403, { message: 'Only the owner can send a test email.' });
     if (body.job !== 'test') return json(400, { message: 'Unknown action.' });
-    if (!me.notify_email) return json(400, { message: 'Add your email address on your People page first.' });
+    if (!me.notify_email) return json(400, { message: 'Add your email address under My settings first.' });
     if (!RESEND) return json(409, { message: 'Emails are not set up yet: the RESEND_API_KEY secret is missing in Supabase.' });
     const ref = `test-${Date.now()}`;
     const n = await send({ ...s, emails_enabled: true }, 'test', ref, [me.notify_email], 'ShiftClock test email', page('It works', `Hi ${esc(me.full_name)}, emails from ShiftClock reach you.`, ''));
@@ -259,6 +288,7 @@ Deno.serve(async (req) => {
     if (t.minutes >= toMin(s.owner_daily_time) && await claim('owner_daily', t.date)) done.owner_daily = await ownerReport(s, 'owner_daily', t.date, t.date);
     const week = mondayOf(t.date);
     if (t.dow === s.weekly_email_dow && t.minutes >= toMin(s.weekly_email_time) && await claim('owner_weekly', week)) done.owner_weekly = await ownerReport(s, 'owner_weekly', week, addDays(week, 6));
+    if (t.dow === s.weekly_email_dow && t.minutes >= toMin(s.weekly_email_time) && await claim('staff_weekly', week)) done.staff_weekly = await staffWeekly(s, week, addDays(week, 6));
     const next = addDays(week, 7);
     if (t.dow === s.schedule_deadline_dow) {
       const dl = toMin(s.schedule_deadline_time);
