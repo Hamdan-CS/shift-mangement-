@@ -16,7 +16,7 @@ export const DEMO_PROFILES: Profile[] = [
 
 export const DEMO_SETTINGS: Settings = {
   id: 1,
-  company_name: 'Northside Café',
+  company_name: 'Cookiery PL',
   currency: 'PLN',
   timezone: 'Europe/Warsaw',
   schedule_deadline_dow: 4,

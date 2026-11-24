@@ -88,7 +88,7 @@ for (const p of PEOPLE) {
   rows.push({ ...p, password });
 }
 
-const { error: setErr } = await admin.from('settings').upsert({ id: 1, company_name: 'Northside Café', currency: 'PLN', timezone: 'Europe/Warsaw' });
+const { error: setErr } = await admin.from('settings').upsert({ id: 1, company_name: 'Cookiery PL', currency: 'PLN', timezone: 'Europe/Warsaw' });
 if (setErr) throw new Error(`settings: ${setErr.message}`);
 
 const created = rows.filter((r) => r.password);
