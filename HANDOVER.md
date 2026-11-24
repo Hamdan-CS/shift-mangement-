@@ -62,12 +62,16 @@ record it shows. Then:
 
 ## Deploying changes
 
-From the project folder:
+The Vercel project is connected to GitHub (`Hamdan-CS/shift-mangement-`): every push to `main`
+deploys the site automatically, and every other branch gets its own preview link.
 
 ```powershell
-npm run build
-npx vercel deploy --prod
+git add -A
+git commit -m "Describe the change"
+git push
 ```
+
+A manual deploy still works if you ever need one: `npx vercel deploy --prod`.
 
 Database changes go in `supabase/migrations/` (one new file per change) and are applied in order.
 Edge Functions are in `supabase/functions/`; `_shared/workbook.ts` is used by both `export-xlsx` and `cron`.
