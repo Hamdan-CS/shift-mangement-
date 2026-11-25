@@ -111,7 +111,7 @@ export function HoursDonut({ split, loading }: { split: Record<SegKey, number>; 
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <svg viewBox="0 0 200 200" className="donut h-[196px] w-[196px] lg:h-[216px] lg:w-[216px]" role="img" aria-label={`Hours split: ${arcs.map((a) => `${a.label} ${Math.round(a.frac * 100)}%`).join(', ')}`}>
+      <svg viewBox="0 0 200 200" className="donut h-[150px] w-[150px] sm:h-[196px] sm:w-[196px] lg:h-[216px] lg:w-[216px]" role="img" aria-label={`Hours split: ${arcs.map((a) => `${a.label} ${Math.round(a.frac * 100)}%`).join(', ')}`}>
         <circle cx="100" cy="100" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="18" />
         {arcs.map((a) => a.len > 0 && (
           <circle

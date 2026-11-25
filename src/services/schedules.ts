@@ -155,6 +155,16 @@ export async function fetchMyShifts(userId: string, from: string, to: string): P
   return (data ?? []) as ScheduleShift[];
 }
 
+/** Planned shifts in a date range; everyone's (managers) or one person's. For the month calendar. */
+export async function fetchShiftsRange(from: string, to: string, userId?: string): Promise<ScheduleShift[]> {
+  if (demoAuth) return sortShifts(read<ScheduleShift>(SH).filter((s) => (!userId || s.user_id === userId) && s.date >= from && s.date <= to));
+  let q = supabase.from('schedule_shifts').select('*').gte('date', from).lte('date', to).order('date').order('start_time').limit(2000);
+  if (userId) q = q.eq('user_id', userId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as ScheduleShift[];
+}
+
 /* ---------------- Today board ---------------- */
 
 export async function fetchTodayBoard(): Promise<TodayBoardRow[]> {

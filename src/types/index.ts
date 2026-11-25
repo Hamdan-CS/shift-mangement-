@@ -12,6 +12,8 @@ export interface Profile {
   /** Hours emails this person wants at notify_email (My settings). */
   email_daily: boolean;
   email_weekly: boolean;
+  /** Default view on the schedule pages (My settings, migration 017). */
+  schedule_view: 'day' | 'week' | 'month';
   role: Role;
   job_title: string | null;
   hourly_rate: number | null;

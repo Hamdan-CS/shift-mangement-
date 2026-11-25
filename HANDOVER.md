@@ -70,9 +70,21 @@ What gets sent (all in company time, times set on Settings):
 | Schedule missing | managers | Deadline day, after the deadline |
 | Approval needed / result / shift changed / shift auto-closed | the person concerned | Within 5 minutes |
 
+## Schedule views
+
+Both schedule pages have **Day / Week / Month**:
+- **My schedule** (staff): Day = who is in today, Week = plan and submit, Month = a calendar of the
+  month with worked hours (solid), planned shifts (outlined), leave and missed days, plus days worked,
+  hours, gross and net at the top. Tap a day for clock-in/out, hours, pay and who approved it.
+- **Schedule** (managers): Day = timeline, Week = edit and lock, Month = the team calendar (hours and
+  people per day, red "None" on days nobody is planned). Tap a day to open it in Day view.
+
+The same month calendar is on each person's page. Each person's default view is under
+**My settings → Schedule view**, and it also remembers the last view they picked.
+
 ## Copy to chat
 
-- **Schedule → Copy schedule**: the week on screen, one line per day ("Not available" on free days).
+- **Schedule → Week → Copy**: the week on screen, one line per day ("Not available" on free days).
 - **Pay → Copy hours & pay**: hours per day with clock-in/out and pay, then total, overtime, gross,
   deductions and net.
 

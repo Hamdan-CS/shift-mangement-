@@ -1,23 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Copy, Download, KeyRound, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Clock3, Copy, Download, KeyRound, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClock } from '@/contexts/ClockContext';
 import { useSettings } from '@/hooks/useSettings';
-import { addDeduction, downloadExcel, fetchDeductions, fetchPayDays, fetchPayReport, fetchPeople, PayError, removeDeduction, setPassword, suggestPassword, updatePerson, type Deduction, type DeductionInput, type PayDay, type PayRow } from '@/services/pay';
-import { fetchLeaveFor } from '@/services/requests';
+import { addDeduction, downloadExcel, fetchDeductions, fetchPayDays, fetchPeople, PayError, removeDeduction, setPassword, suggestPassword, updatePerson, type Deduction, type DeductionInput, type PayDay } from '@/services/pay';
 import { WAvatar, WBox, WButton, WInput } from '@/components/app/ui';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { Switch } from '@/components/shared/ui/Switch';
 import { formatMoney } from '@/utils/labels';
+import { PersonMonth } from '@/components/calendar/MonthCalendar';
 import { notify } from '@/utils/notify';
 import { copyText } from '@/utils/summary';
 import { roleLabel } from '@/utils/roles';
-import { cn } from '@/utils/cn';
 import { dayKey } from '@/utils/tz';
-import type { LeaveRequest, Profile, Role } from '@/types';
+import type { Profile, Role } from '@/types';
 
-const h1 = (m: number) => `${(m / 60).toFixed(1).replace(/\.0$/, '')}h`;
 
 /**
  * "/admin/people/:id": one person (Grovia ref 08): month calendar of hours,
@@ -35,8 +33,6 @@ export function PersonPage() {
   const [person, setPerson] = useState<Profile | null>(null);
   const [month, setMonth] = useState(() => dayKey(new Date(), tz).slice(0, 7)); // 'YYYY-MM'
   const [days, setDays] = useState<PayDay[] | null>(null);
-  const [pay, setPay] = useState<PayRow | null>(null);
-  const [leave, setLeave] = useState<LeaveRequest[]>([]);
   const [deds, setDeds] = useState<Deduction[]>([]);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<'deduction' | 'password' | null>(null);
@@ -47,31 +43,14 @@ export function PersonPage() {
   const load = useCallback(async () => {
     setDays(null);
     try {
-      const [people, d, r, l, x] = await Promise.all([fetchPeople(), fetchPayDays(from, to), fetchPayReport(from, to), fetchLeaveFor(id, from, to), fetchDeductions(id)]);
+      const [people, d, x] = await Promise.all([fetchPeople(), fetchPayDays(from, to), fetchDeductions(id)]);
       setPerson(people.find((p) => p.id === id) ?? null);
       setDays(d.filter((row) => row.user_id === id));
-      setPay(r.find((row) => row.user_id === id) ?? null);
-      setLeave(l.filter((row) => row.status === 'approved'));
       setDeds(x);
     } catch { setDays([]); notify.error('Could not load this person.'); }
   }, [id, from, to]);
   useEffect(() => { void load(); }, [load]);
 
-  // month grid, Monday first
-  const cells = useMemo(() => {
-    const first = new Date(`${from}T12:00:00Z`);
-    const lead = (first.getUTCDay() + 6) % 7;
-    const n = Number(to.slice(8, 10));
-    return [...Array.from({ length: lead }, () => null), ...Array.from({ length: n }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`)];
-  }, [from, to, month]);
-  const byDay = new Map((days ?? []).map((d) => [d.day, d]));
-  const onLeave = (d: string) => leave.some((l) => d >= l.start_date && d <= l.end_date);
-  const today = dayKey(new Date(), tz);
-  const total = pay?.worked_minutes ?? 0;
-  const leaveMin = (pay?.leave_days ?? 0) * 8 * 60;
-  const split = total + leaveMin || 1;
-
-  const shift = (n: number) => { const d = new Date(`${from}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + n); setMonth(d.toISOString().slice(0, 7)); };
   const excel = async () => {
     setBusy(true);
     try { await downloadExcel(from, to, [id]); notify.success('Excel file downloaded'); }
@@ -88,41 +67,7 @@ export function PersonPage() {
       </div>
       <div className="person-grid">
         <section className="sc-card">
-          <div className="person-top">
-            <div>
-              <div className="sc-big tnum">{days === null ? '…' : (total / 60).toFixed(1)}<small>hrs</small> <span className="text-ink-3">/</span> {days === null ? '…' : money(pay?.gross ?? 0)}</div>
-              <p className="mt-1 text-[14px] text-ink-3 lg:text-[12.5px]">{new Date(`${from}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })} · net {money(pay?.net ?? 0)}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="sc-iconbtn" onClick={() => shift(-1)} aria-label="Previous month"><ChevronLeft size={18} /></button>
-              <button type="button" className="sc-iconbtn" onClick={() => shift(1)} aria-label="Next month"><ChevronRight size={18} /></button>
-            </div>
-          </div>
-          <div className="person-split" aria-label="Hours split">
-            <div style={{ flexGrow: Math.max(1, (pay?.regular_minutes ?? 0)) }}><small>Work hours</small><i className="work">{Math.round(((pay?.regular_minutes ?? 0) / split) * 100)}%</i></div>
-            {(pay?.overtime_minutes ?? 0) > 0 && <div style={{ flexGrow: Math.max(1, pay!.overtime_minutes * 3) }}><small>Overtime</small><i className="ot">{Math.round((pay!.overtime_minutes / split) * 100)}%</i></div>}
-            {leaveMin > 0 && <div style={{ flexGrow: leaveMin }}><small>Leave</small><i className="lv">{Math.round((leaveMin / split) * 100)}%</i></div>}
-          </div>
-          <div className="cal" role="grid" aria-label="Hours per day">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <span key={d} className="cal-h">{d}</span>)}
-            {cells.map((d, i) => d === null ? <span key={`e${i}`} /> : (
-              <div key={d} className={cn('cal-d', d === today && 'today', (i % 7) >= 5 && 'weekend')} role="gridcell">
-                <span className="tnum">{Number(d.slice(8))}</span>
-                {byDay.get(d) && <i className={cn('pill', byDay.get(d)!.minutes > ((person?.overtime_after_hours ?? 40) / 5) * 60 + 60 && 'long', byDay.get(d)!.approved_by && 'approved')} title={byDay.get(d)!.approved_by ? `Approved by ${byDay.get(d)!.approved_by}` : undefined}>{h1(byDay.get(d)!.minutes)}</i>}
-                {!byDay.get(d) && onLeave(d) && <i className="pill leave">Leave</i>}
-              </div>
-            ))}
-          </div>
-          {(days ?? []).some((x) => x.approved_by) && (
-            <div className="person-approved">
-              <p className="sheet-label">Added or approved by a manager</p>
-              <ul>
-                {(days ?? []).filter((x) => x.approved_by).map((x) => (
-                  <li key={x.day}><b className="tnum">{new Date(`${x.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</b><span className="tnum">{h1(x.minutes)}</span><small>{x.approved_by}</small></li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {person && <PersonMonth key={person.id} userId={person.id} rate={person.hourly_rate} initialMonth={month} onMonth={setMonth} />}
         </section>
 
         <aside className="sc-card person-side">
@@ -141,7 +86,7 @@ export function PersonPage() {
                 {deds.map((x) => (
                   <li key={x.id} className="rq-item">
                     <div className="rq-main"><b>{x.name}{x.user_id === null ? ' (everyone)' : ''}</b><small>{x.type === 'percent' ? `${x.amount}% of gross, every period` : `${money(x.amount)} · ${x.recurring === 'once' ? `once, ${x.start_date}` : x.recurring === 'weekly' ? 'every week' : 'every month'}`}{x.end_date ? ` until ${x.end_date}` : ''}</small></div>
-                    {isOwner && x.user_id !== null && <WButton tone="ghost" size="sm" onClick={async () => { try { await removeDeduction(x.id); notify.success('Deduction removed'); await load(); } catch { notify.error('Could not remove.'); } }} aria-label={`Remove ${x.name}`}><Trash2 size={16} /></WButton>}
+                    {isOwner && x.user_id !== null && <WButton tone="ghost" size="sm" className="min-w-[44px]" onClick={async () => { try { await removeDeduction(x.id); notify.success('Deduction removed'); await load(); } catch { notify.error('Could not remove.'); } }} aria-label={`Remove ${x.name}`}><Trash2 size={16} /></WButton>}
                   </li>
                 ))}
               </ul>

@@ -29,7 +29,7 @@ export function ShiftRing({ seconds = 0, target = 8 * 3600, label, live }: { sec
   const ss = String(Math.floor(seconds % 60)).padStart(2, '0');
   const a = p * 2 * Math.PI - Math.PI / 2;
   return (
-    <svg viewBox="0 0 220 220" className="h-[200px] w-[200px] lg:h-[208px] lg:w-[208px]" role="img" aria-label={`${label}: ${Number(hh)} hours ${Number(mm)} minutes`}>
+    <svg viewBox="0 0 220 220" className="h-[150px] w-[150px] sm:h-[200px] sm:w-[200px] lg:h-[208px] lg:w-[208px]" role="img" aria-label={`${label}: ${Number(hh)} hours ${Number(mm)} minutes`}>
       {Array.from({ length: ticks }, (_, i) => {
         const ang = (i / ticks) * 2 * Math.PI - Math.PI / 2;
         const long = i % 5 === 0;
@@ -134,7 +134,7 @@ export function MyShiftCard({ currency, rate, overtimeAfterHours, overtimeMultip
           {clock.busy ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} fill="currentColor" />} Start shift
         </WButton>
       )}
-      <p className="mt-2 text-center text-[13px] text-ink-3 lg:text-[12px]">Times are set by the server clock, not your phone.</p>
+      <p className="mt-2 text-center text-[13px] text-ink-3 max-sm:hidden lg:text-[12px]">Times are set by the server clock, not your phone.</p>
 
       <BottomSheet
         open={confirm}

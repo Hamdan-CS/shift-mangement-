@@ -8,6 +8,8 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useNow } from '@/hooks/useNow';
 import { fetchTeam } from '@/services/api';
 import { deleteShift, ensureWeek, fetchTeamWeek, hm, saveShift, ScheduleError, setWeekStatus, shiftDate, subscribeBoard, toMin } from '@/services/schedules';
+import { TeamMonth } from '@/components/calendar/MonthCalendar';
+import { useScheduleView, type ScheduleView } from '@/hooks/useScheduleView';
 import { WAvatar, WBox, WButton, WChip, WPageHeader, WSegmented, type WChipTone } from '@/components/app/ui';
 import { ShiftEditSheet, type ShiftDraft } from '@/components/schedule/ShiftEditSheet';
 import { dayMinutes, dayParts } from '@/components/schedule/days';
@@ -39,7 +41,7 @@ export function AdminSchedulePage() {
   const { timeZone } = useClock();
   const now = useNow(30_000);
   const wide = useMediaQuery('(min-width: 640px)');
-  const [view, setView] = useState<'day' | 'week'>('day');
+  const { value: view, set: setView } = useScheduleView('day');
   const today = dayKey(now, timeZone);
   const [date, setDate] = useState(today);
   const thisWeek = dayKey(startOfWeek(new Date(), timeZone), timeZone);
@@ -123,7 +125,7 @@ export function AdminSchedulePage() {
     <>
       <WPageHeader
         title="Schedule"
-        subtitle="Built from everyone's weeks. Day view shows who works when, Week view lets you edit and lock."
+        subtitle="Day: who works when. Week: edit and lock. Month: the whole team at a glance."
         actions={view === 'week' ? (
           <WButton tone={allLocked ? 'secondary' : 'primary'} onClick={toggleLock} disabled={locking || shifts === null || !profile}>
             {locking ? <Loader2 size={17} className="animate-spin" /> : allLocked ? <LockOpen size={17} /> : <Lock size={17} />} {allLocked ? 'Unlock week' : 'Lock week'}
@@ -132,18 +134,20 @@ export function AdminSchedulePage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <WSegmented<'day' | 'week'> ariaLabel="View" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }]} />
-        <div className="wk-nav" style={{ minWidth: 260 }}>
+        <WSegmented<ScheduleView> ariaLabel="View" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
+        {view !== 'month' && <div className="wk-nav" style={{ minWidth: 260 }}>
           <button type="button" className="sc-iconbtn" aria-label={view === 'day' ? 'Previous day' : 'Previous week'} onClick={() => (view === 'day' ? setDate((d) => shiftDate(d, -1)) : setWeekStart((w) => shiftDate(w, -7)))}><ChevronLeft size={18} /></button>
           <div className="min-w-0 text-center">
             <b>{view === 'day' ? (date === today ? 'Today' : dayParts(date).long) : weekStart === thisWeek ? 'This week' : weekStart === shiftDate(thisWeek, 7) ? 'Next week' : 'Week'}</b>
             <small className="tnum">{view === 'day' ? dayParts(date).long : range}</small>
           </div>
           <button type="button" className="sc-iconbtn" aria-label={view === 'day' ? 'Next day' : 'Next week'} onClick={() => (view === 'day' ? setDate((d) => shiftDate(d, 1)) : setWeekStart((w) => shiftDate(w, 7)))}><ChevronRight size={18} /></button>
-        </div>
+        </div>}
       </div>
 
-      {view === 'day' ? (
+      {view === 'month' ? (
+        <section className="sc-card"><TeamMonth onDay={(d) => { setDate(d); setView('day'); }} /></section>
+      ) : view === 'day' ? (
         <DayView
           people={people}
           shifts={(shifts ?? []).filter((s) => s.date === date)}
@@ -234,9 +238,10 @@ export function AdminSchedulePage() {
                         {days.map((d) => {
                           const list = shiftsOf(p.id, d);
                           return (
-                            <button key={d} type="button" className="mw-card-day" onClick={() => (list[0] ? openEdit(p, list[0]) : openAdd(p, d))} aria-label={`${p.full_name}, ${dayParts(d).long}: ${list.length ? list.map((s) => `${hm(s.start_time)} to ${hm(s.end_time)}`).join(', ') : 'off'}. ${list.length ? 'Edit' : 'Add shift'}`}>
-                              <span>{dayParts(d).dow} {dayParts(d).num}</span>
-                              {list.length ? <b className="tnum">{list.map((s) => `${hm(s.start_time)}–${hm(s.end_time)}`).join(', ')}</b> : <small>Off · tap to add</small>}
+                            <button key={d} type="button" className={cn('mw-card-day', list.length > 0 && 'on', d === today && 'today')} onClick={() => (list[0] ? openEdit(p, list[0]) : openAdd(p, d))} aria-label={`${p.full_name}, ${dayParts(d).long}: ${list.length ? list.map((s) => `${hm(s.start_time)} to ${hm(s.end_time)}`).join(', ') : 'off'}. ${list.length ? 'Edit' : 'Add shift'}`}>
+                              <span className="dow">{dayParts(d).dow.slice(0, 2)}</span>
+                              <span className="num tnum">{dayParts(d).num}</span>
+                              {list.length ? <b className="tnum">{hm(list[0].start_time)}<br />{hm(list[0].end_time)}</b> : <small aria-hidden="true">+</small>}
                             </button>
                           );
                         })}

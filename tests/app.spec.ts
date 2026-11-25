@@ -15,8 +15,8 @@ test.describe('desktop', () => {
     await page.getByRole('button', { name: /Start shift/ }).first().click();
     await expect(page.getByRole('button', { name: /Finish shift/ }).first()).toBeVisible();
     await page.getByRole('button', { name: /Finish shift/ }).first().click();
-    const confirm = page.getByRole('dialog').getByRole('button', { name: /Finish shift/ });
-    if (await confirm.isVisible().catch(() => false)) await confirm.click();
+    // the confirm sheet always opens (it animates in, so wait for it)
+    await page.getByRole('dialog').getByRole('button', { name: /Finish shift/ }).click();
     await expect(page.getByRole('button', { name: /Start shift/ }).first()).toBeVisible();
   });
 
@@ -39,7 +39,8 @@ test.describe('desktop', () => {
     await page.goto('/admin/people');
     await page.getByRole('button', { name: /Ali Hassan/ }).click();
     await expect(page).toHaveURL(/\/admin\/people\//);
-    await expect(page.getByRole('grid', { name: 'Hours per day' })).toBeVisible();
+    await expect(page.getByRole('grid', { name: 'Your month' })).toBeVisible();
+    await expect(page.getByText('Net pay')).toBeVisible();
   });
 
   test('manager adds a timesheet entry', async ({ page }) => {
@@ -96,7 +97,7 @@ test.describe('desktop', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await signIn(page, 'ali');
     await page.goto('/schedule');
-    await page.getByRole('button', { name: 'Copy schedule' }).click();
+    await page.getByRole('button', { name: 'Copy', exact: true }).click();
     await expect(page.getByText('Schedule copied')).toBeVisible();
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toContain('*Name:* Ali Hassan');
@@ -158,5 +159,32 @@ test.describe('desktop', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Set new password' }).click();
     await expect(page.getByRole('dialog').getByText('New password set')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Copy login details' })).toBeVisible();
+  });
+
+  test('month calendar on My schedule, and the view is remembered in My settings', async ({ page }) => {
+    await signIn(page, 'ali');
+    await page.goto('/schedule');
+    await page.getByRole('button', { name: 'Month', exact: true }).click();
+    await expect(page.getByRole('grid', { name: 'Your month' })).toBeVisible();
+    await expect(page.getByText('Days worked')).toBeVisible();
+    await page.getByRole('gridcell', { name: /Monday 23 November/ }).click();
+    await expect(page.getByRole('dialog').getByText('Clocked')).toBeVisible();
+    await page.keyboard.press('Escape');
+    // move inside the app (demo mode keeps profile changes in memory only)
+    await page.locator('.sc-user').click();
+    await page.getByRole('menuitem', { name: 'My settings' }).click();
+    await expect(page.getByRole('group', { name: 'Schedule view' }).getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('group', { name: 'Schedule view' }).getByRole('button', { name: 'Week' }).click();
+    await page.getByRole('link', { name: 'Schedule' }).first().click();
+    await expect(page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('manager team month opens a day', async ({ page }) => {
+    await signIn(page, 'manager');
+    await page.goto('/admin/schedule');
+    await page.getByRole('button', { name: 'Month', exact: true }).click();
+    await expect(page.getByRole('grid', { name: 'Team month' })).toBeVisible();
+    await page.getByRole('gridcell', { name: /Tuesday 24 November/ }).click();
+    await expect(page.getByRole('button', { name: 'Day', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });

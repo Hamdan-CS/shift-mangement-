@@ -8,7 +8,9 @@
 @import './design-system/styles/pay.css';
 @import './design-system/styles/insights.css';
 @import './design-system/styles/admin.css';
+@import './design-system/styles/calendar.css';
 @import './design-system/styles/motion.css';
+@import './design-system/styles/compact.css';
 
 @tailwind base;
 @tailwind components;

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Loader2, Mail, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { WAvatar, WBox, WButton, WChip, WInput, WPageHeader, WTextarea } from '@/components/app/ui';
+import { WAvatar, WBox, WButton, WChip, WInput, WPageHeader, WSegmented, WTextarea } from '@/components/app/ui';
+import { useScheduleView, type ScheduleView } from '@/hooks/useScheduleView';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { useSettings } from '@/hooks/useSettings';
 import { createPayRequest, fetchMyPayRequests, RequestError, withdrawPayRequest } from '@/services/requests';
@@ -79,6 +80,7 @@ export function AccountPage() {
           </div>
         </WBox>
 
+        <ScheduleViewCard />
         <NameCard />
         {profile.role !== 'owner' && <PayRateCard />}
 
@@ -186,5 +188,15 @@ function PayRequestSheet({ open, current, onClose, onSent }: { open: boolean; cu
         <WTextarea label="Why?" rows={3} maxLength={500} placeholder="e.g. One year in the job, new responsibilities" value={reason} onChange={(e) => setReason(e.target.value)} />
       </div>
     </BottomSheet>
+  );
+}
+
+/** How the schedule pages open: Day, Week or Month (also remembered when switched there). */
+function ScheduleViewCard() {
+  const view = useScheduleView();
+  return (
+    <WBox title="Schedule view" meta="How your schedule opens. You can switch on the page too.">
+      <WSegmented<ScheduleView> ariaLabel="Schedule view" value={view.value} onChange={(v) => { view.set(v); notify.success(`Schedule opens in ${v} view`); }} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
+    </WBox>
   );
 }

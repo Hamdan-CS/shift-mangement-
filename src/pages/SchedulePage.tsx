@@ -9,6 +9,8 @@ import { useNow } from '@/hooks/useNow';
 import { WButton, WChip, WPageHeader, WSegmented, type WChipTone } from '@/components/app/ui';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { TodaySchedule } from '@/components/dashboard/TodaySchedule';
+import { PersonMonth } from '@/components/calendar/MonthCalendar';
+import { useScheduleView, type ScheduleView } from '@/hooks/useScheduleView';
 import { timeToMin } from '@/components/dashboard/statusMeta';
 import { ShiftEditSheet, type ShiftDraft } from '@/components/schedule/ShiftEditSheet';
 import { WeekGrid } from '@/components/schedule/WeekGrid';
@@ -36,11 +38,11 @@ type Editing = { date: string; shift: ScheduleShift | null; initial: ShiftDraft 
  */
 export function SchedulePage() {
   const { profile } = useAuth();
+  const view = useScheduleView();
   const settings = useSettings();
   const { timeZone } = useClock();
   const desktop = useMediaQuery(DESKTOP);
   const now = useNow(60_000);
-  const [tab, setTab] = useState<'week' | 'team'>('week');
   const thisWeek = dayKey(startOfWeek(new Date(), timeZone), timeZone);
   const [weekStart, setWeekStart] = useState(() => shiftDate(dayKey(startOfWeek(new Date(), timeZone), timeZone), 7)); // next week
   const [week, setWeek] = useState<ScheduleWeek | null>(null);
@@ -139,14 +141,16 @@ export function SchedulePage() {
 
   return (
     <>
-      <WPageHeader title="My schedule" subtitle="Plan your days, submit before the deadline, see who is in today." />
+      <WPageHeader title="My schedule" subtitle="Plan your week, see your month, see who is in today." />
 
-      <div className="mb-4">
-        <WSegmented<'week' | 'team'> ariaLabel="Show" value={tab} onChange={setTab} options={[{ value: 'week', label: 'My week' }, { value: 'team', label: 'Team today' }]} />
+      <div className="sc-viewbar">
+        <WSegmented<ScheduleView> ariaLabel="View" value={view.value} onChange={view.set} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
       </div>
 
-      {tab === 'team' ? (
+      {view.value === 'day' ? (
         <TodaySchedule rows={board.rows} loading={board.loading} dayStart={dayStart} dayEnd={dayEnd} timeZone={timeZone} title="Team today" />
+      ) : view.value === 'month' ? (
+        <section className="sc-card">{profile && <PersonMonth userId={profile.id} rate={profile.hourly_rate} />}</section>
       ) : (
         <div className="sc-grid">
           {/* week switcher + status */}
@@ -166,10 +170,15 @@ export function SchedulePage() {
               </div>
               <WChip tone={status.tone}>{status.label}</WChip>
             </div>
+            {!locked && (
+              <WButton block className="mt-3" onClick={submit} disabled={busy !== null || shifts === null || total === 0}>
+                <Send size={17} /> {week?.status === 'submitted' ? 'Submit changes' : `Submit ${weekLabel.toLowerCase()}`}
+              </WButton>
+            )}
             <div className="wk-acts">
-              <WButton tone="secondary" onClick={shareWeek} disabled={shifts === null}><ClipboardCopy size={17} /> Copy schedule</WButton>
-              {!locked && <WButton tone="secondary" onClick={copyLast} disabled={busy !== null || shifts === null}><Copy size={17} /> Copy last week</WButton>}
-              {!locked && <WButton tone="secondary" onClick={() => setRepeatOpen(true)} disabled={busy !== null || shifts === null}><Repeat size={17} /> Same every day</WButton>}
+              <WButton tone="secondary" onClick={shareWeek} disabled={shifts === null}><ClipboardCopy size={16} /> Copy</WButton>
+              {!locked && <WButton tone="secondary" onClick={copyLast} disabled={busy !== null || shifts === null}><Copy size={16} /> Last week</WButton>}
+              {!locked && <WButton tone="secondary" onClick={() => setRepeatOpen(true)} disabled={busy !== null || shifts === null}><Repeat size={16} /> Every day</WButton>}
             </div>
             {locked && <div className="sc-alert info mt-4"><Lock size={16} className="mt-0.5 shrink-0" /><span>This week is locked. Your manager can still change it.</span></div>}
           </section>
@@ -191,7 +200,7 @@ export function SchedulePage() {
                       <div className="wk-date"><span>{p.dow}</span><b className="tnum">{p.num}</b></div>
                       <div className="min-w-0 flex-1">
                         <div className="wg-bar"><i style={{ width: `${Math.min(100, (mins / 480) * 100)}%` }} /></div>
-                        <small className="tnum">{shifts === null ? '…' : mins ? formatHours(mins) : 'Off'}</small>
+                        {(shifts === null || !mins) && <small className="tnum">{shifts === null ? '…' : 'Off'}</small>}
                       </div>
                       {!locked && (
                         <button type="button" className="sc-iconbtn" aria-label={`Add shift on ${p.long}`} onClick={() => openAdd(d)}><Plus size={18} /></button>
@@ -214,13 +223,6 @@ export function SchedulePage() {
             </ul>
           )}
 
-          {!locked && (
-            <div className="sc-sticky-submit">
-              <WButton size="lg" block onClick={submit} disabled={busy !== null || shifts === null || total === 0}>
-                <Send size={18} /> {week?.status === 'submitted' ? 'Submit changes' : `Submit ${weekLabel.toLowerCase()}`}
-              </WButton>
-            </div>
-          )}
         </div>
       )}
 

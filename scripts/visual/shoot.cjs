@@ -43,6 +43,8 @@ async page => {
     { name: 'settings', path: '/admin/settings', user: 'demo-owner' },
     { name: 'reports', path: '/admin/reports', user: 'demo-manager' },
     { name: 'account', path: '/account', user: 'demo-ali' },
+    { name: 'schedule-month', path: '/schedule', user: 'demo-ali', open: 'month' },
+    { name: 'admin-month', path: '/admin/schedule', user: 'demo-manager', open: 'month' },
   ];
   const sizes = [
     { id: '360', w: 360, h: 740 },
@@ -140,11 +142,12 @@ async page => {
         await page.goto(base + s.path);
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(350);
+        if (s.open === 'month') { await page.getByRole('button', { name: 'Month', exact: true }).click(); await page.waitForTimeout(500); }
         if (s.open === 'add-person') { await page.getByRole('button', { name: 'Add person' }).first().click(); await page.waitForTimeout(450); }
         if (s.open === 'entry') { await page.getByRole('button', { name: /^Edit / }).first().click(); await page.waitForTimeout(450); }
         if (s.open === 'more') { await page.getByRole('button', { name: 'More' }).click(); await page.waitForTimeout(450); }
         if (s.open === 'timeline') { await page.getByRole('button', { name: 'Timeline' }).click(); await page.waitForTimeout(300); }
-        if (s.open === 'team') { await page.getByRole('button', { name: 'Team today' }).click(); await page.waitForTimeout(350); }
+        if (s.open === 'team') { await page.getByRole('button', { name: 'Day', exact: true }).click(); await page.waitForTimeout(350); }
         if (s.open === 'week') { await page.getByRole('button', { name: 'Week', exact: true }).click(); await page.waitForTimeout(450); }
         if (s.open === 'edit') { await page.locator('.wk-pill, .wg-block').first().click(); await page.waitForTimeout(450); }
         if (s.open === 'fix') { await page.getByRole('button', { name: /Add a missing shift/ }).first().click(); await page.waitForTimeout(450); }

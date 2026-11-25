@@ -135,7 +135,7 @@ export async function fetchPeople(): Promise<Profile[]> {
   return ((data ?? []) as Profile[]).map((p) => ({ ...p, hourly_rate: p.hourly_rate === null ? null : num(p.hourly_rate), overtime_after_hours: num(p.overtime_after_hours), overtime_multiplier: num(p.overtime_multiplier) }));
 }
 
-export type ProfilePatch = Partial<Pick<Profile, 'full_name' | 'job_title' | 'role' | 'hourly_rate' | 'overtime_after_hours' | 'overtime_multiplier' | 'active' | 'notify_email' | 'email_daily' | 'email_weekly'>>;
+export type ProfilePatch = Partial<Pick<Profile, 'full_name' | 'job_title' | 'role' | 'hourly_rate' | 'overtime_after_hours' | 'overtime_multiplier' | 'active' | 'notify_email' | 'email_daily' | 'email_weekly' | 'schedule_view'>>;
 export async function updatePerson(id: string, patch: ProfilePatch): Promise<void> {
   if (demoAuth) { const p = DEMO_PROFILES.find((x) => x.id === id); if (p) Object.assign(p, patch); return; }
   const { error } = await supabase.from('profiles').update(patch).eq('id', id);
@@ -157,7 +157,7 @@ export async function addPerson(p: NewPerson): Promise<{ id: string }> {
   if (p.password.length < 8) throw new PayError('The password needs at least 8 characters.');
   if (demoAuth) {
     const id = `demo-${p.username}`;
-    DEMO_PROFILES.push({ id, username: p.username, full_name: p.full_name, avatar_url: null, notify_email: null, email_daily: true, email_weekly: true, role: p.role, job_title: p.job_title || null, hourly_rate: p.hourly_rate, overtime_after_hours: 40, overtime_multiplier: 1.5, active: true, created_at: new Date().toISOString() });
+    DEMO_PROFILES.push({ id, username: p.username, full_name: p.full_name, avatar_url: null, notify_email: null, email_daily: true, email_weekly: true, schedule_view: 'week', role: p.role, job_title: p.job_title || null, hourly_rate: p.hourly_rate, overtime_after_hours: 40, overtime_multiplier: 1.5, active: true, created_at: new Date().toISOString() });
     return { id };
   }
   return staff({ action: 'create', ...p });
