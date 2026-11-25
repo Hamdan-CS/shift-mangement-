@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarPlus, Inbox, Loader2, Play, QrCode, Square, Wallet } from 'lucide-react';
+import { CalendarPlus, Inbox, Loader2, Play, QrCode, ScanLine, Square, Wallet } from 'lucide-react';
+import { QrScanner } from '@/components/clock/QrScanner';
 import { WAvatar, WButton, WChip, WKpis } from '@/components/app/ui';
 import { fetchTeam, subscribeNotifications } from '@/services/api';
 import { fetchApprovals, LEAVE_LABEL } from '@/services/requests';
@@ -57,6 +58,8 @@ export function MyShiftCard({ currency, rate, overtimeAfterHours, overtimeMultip
   const clock = useClock();
   const now = useNow(clock.open ? 1000 : 30_000);
   const [confirm, setConfirm] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const closeScanner = useCallback(() => setScanning(false), []);
   const tz = clock.timeZone;
   const todayEnd = addDays(clock.todayStart, 1, tz);
   const weekEnd = addDays(clock.weekStart, 7, tz);
@@ -118,13 +121,13 @@ export function MyShiftCard({ currency, rate, overtimeAfterHours, overtimeMultip
 
       {/* Clock button: big, full width, thumb-reachable (PLAN.md 10c). */}
       {!buttonAllowed ? (
-        <div className="sc-inset mt-5 flex items-center gap-3 lg:mt-6">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-surface text-accent"><QrCode size={22} /></span>
-          <div className="min-w-0">
-            <b className="block text-[16px] font-semibold lg:text-[13.5px]">Scan the code at work</b>
-            <small className="block text-[14px] text-ink-3 lg:text-[12px]">Point your phone camera at the QR code by the door to clock {clock.open ? 'out' : 'in'}.</small>
-          </div>
-        </div>
+        <>
+          <WButton tone={clock.open ? 'solid' : 'primary'} size="lg" block className="mt-5 lg:mt-6" onClick={() => setScanning(true)}>
+            <ScanLine size={19} /> {clock.open ? 'Scan to finish shift' : 'Scan to start shift'}
+          </WButton>
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[13px] text-ink-3 lg:text-[12px]"><QrCode size={14} /> Point at the QR code on the screen at work.</p>
+          <QrScanner open={scanning} onClose={closeScanner} />
+        </>
       ) : clock.open ? (
         <WButton tone="solid" size="lg" block className="mt-5 lg:mt-6" disabled={clock.busy} onClick={() => setConfirm(true)}>
           <Square size={16} fill="currentColor" /> Finish shift

@@ -1,0 +1,25 @@
+/* In-app QR scanner (components/clock/QrScanner.tsx): full-screen camera with a scan frame. */
+.qrs { position: fixed; inset: 0; z-index: 95; background: #000; color: #fff; display: flex; flex-direction: column; animation: sc-fade .18s ease-out both; }
+.qrs-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.qrs-top {
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px; background: linear-gradient(rgba(0,0,0,.6), transparent);
+}
+.qrs-top b { font-size: 17px; font-weight: 600; }
+.qrs-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; }
+.qrs-frame { position: relative; z-index: 2; margin: auto; width: min(68vw, 300px); aspect-ratio: 1; border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); overflow: hidden; }
+.qrs-frame i { position: absolute; width: 38px; height: 38px; border: 4px solid #fff; }
+.qrs-frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 22px; }
+.qrs-frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 22px; }
+.qrs-frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 22px; }
+.qrs-frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 22px; }
+.qrs-line { position: absolute; left: 10%; right: 10%; height: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: qrs-scan 2s ease-in-out infinite alternate; }
+@keyframes qrs-scan { from { top: 12%; } to { top: 88%; } }
+@media (prefers-reduced-motion: reduce) { .qrs-line { animation: none; top: 50%; } }
+.qrs-bottom { position: relative; z-index: 2; margin-top: auto; padding: 18px 20px max(24px, env(safe-area-inset-bottom)); text-align: center; background: linear-gradient(transparent, rgba(0,0,0,.7)); }
+.qrs-bottom p { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; line-height: 1.4; }
+.qrs-bottom p.warn { color: #ffd479; }
+.qrs-problem { display: grid; justify-items: center; gap: 8px; margin: 0 auto; max-width: 340px; padding: 22px 18px; border-radius: 18px; background: var(--surface); color: var(--text); }
+.qrs-problem b { font-size: 17px; }
+.qrs-problem p { color: var(--text-2); font-size: 14px; margin: 0 0 6px; }
+.qrs-problem svg { color: var(--text-3); }
