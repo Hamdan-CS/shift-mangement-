@@ -17,7 +17,7 @@ async page => {
     { name: 'shift-edit', path: '/schedule', user: 'demo-ali', open: 'edit' },
     { name: 'admin-day', path: '/admin/schedule', user: 'demo-manager' },
     { name: 'admin-week', path: '/admin/schedule', user: 'demo-manager', open: 'week' },
-    { name: 'today-timeline', path: '/today', user: 'demo-manager', open: 'timeline' },
+    { name: 'today-timeline', path: '/today', user: 'demo-manager' },
     { name: 'shift-sheet', path: '/today', user: 'demo-ali', open: 'row' },
     { name: 'history', path: '/history', user: 'demo-ali' },
     { name: 'finish-sheet', path: '/', user: 'demo-ali', open: 'finish' },
@@ -146,7 +146,6 @@ async page => {
         if (s.open === 'add-person') { await page.getByRole('button', { name: 'Add person' }).first().click(); await page.waitForTimeout(450); }
         if (s.open === 'entry') { await page.getByRole('button', { name: /^Edit / }).first().click(); await page.waitForTimeout(450); }
         if (s.open === 'more') { await page.getByRole('button', { name: 'More' }).click(); await page.waitForTimeout(450); }
-        if (s.open === 'timeline') { await page.getByRole('button', { name: 'Timeline' }).click(); await page.waitForTimeout(300); }
         if (s.open === 'team') { await page.getByRole('button', { name: 'Day', exact: true }).click(); await page.waitForTimeout(350); }
         if (s.open === 'week') { await page.getByRole('button', { name: 'Week', exact: true }).click(); await page.waitForTimeout(450); }
         if (s.open === 'edit') { await page.locator('.wk-pill, .wg-block').first().click(); await page.waitForTimeout(450); }
@@ -154,7 +153,7 @@ async page => {
         if (s.open === 'drawer') { await page.locator('.ap-open').first().click(); await page.waitForTimeout(450); }
         if (s.open === 'bell') { await page.getByRole('button', { name: 'Notifications' }).first().click(); await page.waitForTimeout(450); }
         if (s.open === 'finish') { await page.getByRole('button', { name: 'Finish shift' }).first().click(); await page.waitForTimeout(450); }
-        if (s.open === 'row') { await page.getByRole('button', { name: 'List' }).click(); await page.locator('.tl-li').first().click(); await page.waitForTimeout(450); }
+        if (s.open === 'row') { await page.locator('.tl-who, .tb-row, .tb-chip').first().click(); await page.waitForTimeout(450); }
 
         const r = await page.evaluate((touch) => {
           const out = { hscroll: 0, small: [], tiny: [] };

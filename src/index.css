@@ -1,6 +1,7 @@
 @import './design-system/tokens/tokens.css';
 @import './design-system/styles/amplo.css';
 @import './design-system/styles/timeline.css';
+@import './design-system/styles/today-board.css';
 @import './design-system/styles/schedule.css';
 @import './design-system/styles/qr.css';
 @import './design-system/styles/requests.css';

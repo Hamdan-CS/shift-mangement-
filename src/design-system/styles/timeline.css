@@ -9,75 +9,65 @@
 @media (min-width: 1024px) { .tl-sum { font-size: 12.5px !important; } }
 
 .tl-scroll {
-  --namew: 104px;
-  --hourw: 64px;
-  --rowh: 60px;
+  --hourw: 76px;
+  --rowh: 66px;
   overflow-x: auto; overscroll-behavior-x: contain;
   border-top: 1px solid var(--border);
-  scrollbar-width: thin;
-  border-radius: 0 0 12px 12px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
-@media (min-width: 640px) { .tl-scroll { --namew: 220px; } }
-@media (min-width: 1024px) { .tl-scroll { --namew: 280px; --hourw: 52px; --rowh: 56px; } }
+.tl-scroll::-webkit-scrollbar { display: none; }
+@media (min-width: 1024px) { .tl-scroll { --hourw: 64px; --rowh: 60px; } }
 
+/* one column: hour labels, then one full-width row per person */
 .tl-grid {
   position: relative;
   display: grid;
-  grid-template-columns: var(--namew) minmax(calc(var(--hours) * var(--hourw)), 1fr);
-  /* the grid box must be as wide as its content, or the sticky names lose their containing block */
+  grid-template-columns: minmax(calc(var(--hours) * var(--hourw)), 1fr);
   width: max-content;
   min-width: 100%;
 }
 
-/* sticky name column */
-.tl-name {
-  position: sticky; left: 0; z-index: 3;
-  display: flex; align-items: center; gap: 10px;
-  min-height: var(--rowh); padding: 0 10px 0 2px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  box-shadow: 1px 0 0 var(--border);
-  min-width: 0;
-}
-.tl-name b { display: block; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-name small { display: block; font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (min-width: 1024px) { .tl-name b { font-size: 13px; } .tl-name small { font-size: 12px; } }
-.tl-corner {
-  min-height: 40px; border-top: 0;
-  font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3);
-}
-
 /* hour labels */
-.tl-hours { position: relative; height: 40px; }
+.tl-hours { position: relative; height: 34px; }
 .tl-hours span {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
-  font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 12px; font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.tl-hours span.first { transform: translate(4px, -50%); }
-.tl-hours span.last { transform: translate(calc(-100% - 4px), -50%); }
 
-/* tracks with hour grid lines */
-.tl-track {
+/* a person's row, with hour grid lines */
+.tl-row {
   position: relative; min-height: var(--rowh);
   border-top: 1px solid var(--border);
   background-image: linear-gradient(to right, var(--border) 1px, transparent 1px);
   background-size: calc(100% / var(--hours)) 100%;
 }
-.tl-track.off { background-color: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.tl-row.off { background-color: color-mix(in srgb, var(--surface-2) 45%, transparent); }
 
-/* shift bar: light = scheduled, blue fill = worked, red outline = late, stripes = leave */
+/* name inside the row, top-left; stays in view while you swipe */
+.tl-who {
+  position: sticky; left: 0; z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px; max-width: min(100%, 300px);
+  margin: 5px 0 0 6px; padding: 2px 8px 2px 2px; min-height: 26px;
+  border: 0; border-radius: 99px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; white-space: nowrap;
+}
+.tl-who b { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.tl-who small { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+
+/* shift bar under the name: light = planned, fill = worked, red outline = late, stripes = leave */
 .tl-bar {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  height: 44px; min-width: 44px; padding: 0 10px;
-  display: flex; align-items: center; overflow: hidden;
-  border-radius: 12px; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  position: absolute; bottom: 6px;
+  height: 28px; min-width: 56px; padding: 0 8px;
+  display: flex; align-items: center; overflow: visible;
+  border-radius: 9px; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   background: var(--accent-soft); color: var(--text);
-  font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
   cursor: pointer; z-index: 1;
 }
-.tl-bar span { position: relative; z-index: 1; }
-.tl-bar .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); }
-.tl-bar .fill + span { color: var(--accent-ink); }
+.tl-bar span { position: sticky; left: 8px; right: 8px; z-index: 1; }
+.tl-bar .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 8px; }
+.tl-bar .fill + span { color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 1px 6px; margin-left: -4px; border-radius: 6px; }
 .tl-bar.worked-only { background: var(--accent); border-color: var(--accent); }
 .tl-bar.worked-only span { color: var(--accent-ink); }
 .tl-bar.worked-only.done { background: color-mix(in srgb, var(--accent) 55%, var(--surface-2)); border-color: transparent; }
@@ -86,14 +76,15 @@
 .tl-bar.done { background: var(--surface-2); border-color: var(--border-strong); }
 .tl-bar.done .fill { background: color-mix(in srgb, var(--accent) 55%, var(--surface-2)); }
 .tl-bar.leave, .lg.leave {
-  border: 0; cursor: default; height: 30px;
+  border: 0; cursor: default;
   background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--surface-3) 6px 12px);
 }
-@media (min-width: 1024px) { .tl-bar { height: 32px; border-radius: 9px; font-size: 12px; } .tl-bar.leave { height: 24px; } }
+.tl-bar.leave span { font-size: 12px; font-weight: 500; color: var(--text-2); }
+.tl-skelbar { position: absolute; bottom: 8px; height: 24px; border-radius: 9px; }
 
 /* live red "now" line */
 /* overlay over the hour area only (absolute, so it never takes a grid cell) */
-.tl-nowlayer { position: absolute; top: 0; bottom: 0; left: var(--namew); right: 0; pointer-events: none; z-index: 2; }
+.tl-nowlayer { position: absolute; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none; z-index: 2; }
 .tl-now { position: absolute; top: 6px; bottom: 0; width: 2px; margin-left: -1px; background: var(--red); }
 .tl-now span {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%);
@@ -135,3 +126,41 @@
 .tl-dl > div { background: var(--surface-2); border-radius: 14px; padding: 12px 14px; }
 .tl-dl dt { font-size: 13px; color: var(--text-3); }
 .tl-dl dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+
+/* ---- toolbar above the timeline: visible hours, earlier / Now / later ---- */
+.tl-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.tl-range { font-size: 13px; color: var(--text-3); }
+.tl-tools-btns { display: flex; align-items: center; gap: 6px; }
+.tl-tools-btns .sc-iconbtn:disabled { opacity: .35; }
+.tl-nowbtn {
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px;
+  border: 0; border-radius: 12px; background: var(--red-soft); color: var(--red);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+@media (min-width: 1024px) { .tl-nowbtn { height: 36px; font-size: 13px; } }
+
+/* edge fades: show there is more to swipe */
+.tl-wrap { position: relative; }
+.tl-wrap::before, .tl-wrap::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 28px; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .2s;
+}
+.tl-wrap::before { left: 0; width: 14px; background: linear-gradient(to right, color-mix(in srgb, var(--text) 12%, transparent), transparent); }
+.tl-wrap::after { right: 0; background: linear-gradient(to left, var(--surface), transparent); }
+.tl-wrap.fade-l::before, .tl-wrap.fade-r::after { opacity: 1; }
+
+/* status next to the name: coloured dot on the avatar + one word */
+.tl-av { position: relative; display: inline-flex; border-radius: 50%; flex: none; }
+.tl-av::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--surface); background: var(--text-3); }
+.tl-av.working::after { background: var(--green); }
+.tl-av.late::after, .tl-av.absent::after { background: var(--red); }
+.tl-av.upcoming::after { background: var(--accent); }
+.tl-av.on_leave::after { background: var(--violet, var(--accent)); }
+.tl-av.off::after, .tl-av.finished::after { background: var(--border-strong); }
+.tl-st.working { color: var(--green); }
+.tl-st.late, .tl-st.absent { color: var(--red); }
+.tl-st.upcoming { color: var(--accent); }
+
+/* phones */
+@media (max-width: 639px) {
+  .tl-legend { gap: 6px 12px; font-size: 12px; }
+}
