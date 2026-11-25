@@ -11,17 +11,27 @@
 //   reminder      → people who haven't submitted next week (deadline day, reminder_time)
 //   missing       → managers: who still hasn't submitted (after the deadline)
 // Every scheduled job is claimed once in email_log, so a tick that runs twice
-// never sends twice. Without RESEND_API_KEY the emails are logged as skipped
+// never sends twice. Sends through Gmail (GMAIL_USER + GMAIL_APP_PASSWORD) or
+// Resend (RESEND_API_KEY); with neither, emails are logged as skipped
 // (in-app notifications still happen).
 //
 // The owner can also call it signed in with { job: 'test' } to get a test email.
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import nodemailer from 'npm:nodemailer@6.9.16';
+import { Buffer } from 'node:buffer';
 import { buildWorkbook } from '../_shared/workbook.ts';
 
 const url = Deno.env.get('SUPABASE_URL')!;
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
 const RESEND = Deno.env.get('RESEND_API_KEY') ?? '';
+// Gmail (preferred when set): GMAIL_USER + GMAIL_APP_PASSWORD (a Google App password).
+// Port 465 because Supabase blocks outgoing 25 and 587.
+const GMAIL_USER = (Deno.env.get('GMAIL_USER') ?? '').trim();
+const GMAIL_PASS = (Deno.env.get('GMAIL_APP_PASSWORD') ?? '').replace(/\s+/g, '');
+const gmail = GMAIL_USER && GMAIL_PASS ? nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } }) : null;
+const MAIL_ON = Boolean(gmail || RESEND);
+const MAILER = gmail ? 'gmail' : RESEND ? 'resend' : 'no key';
 const FROM = Deno.env.get('EMAIL_FROM') ?? 'ShiftClock <onboarding@resend.dev>';
 const APP = (Deno.env.get('APP_URL') ?? 'https://shiftclock-web-d448.vercel.app').replace(/\/$/, '');
 
@@ -86,9 +96,16 @@ async function send(s: Settings, job: string, ref: string, to: string[], subject
   const list = [...new Set(to.map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x) && !x.endsWith('@shiftclock.local')))];
   if (!list.length) return 0;
   if (!s.emails_enabled) { for (const r of list) await log(job, ref, r, 'skipped', 'emails switched off in Settings'); return 0; }
-  if (!RESEND) { for (const r of list) await log(job, ref, r, 'skipped', 'RESEND_API_KEY not set'); return 0; }
+  if (!MAIL_ON) { for (const r of list) await log(job, ref, r, 'skipped', 'no email service: set GMAIL_USER + GMAIL_APP_PASSWORD (or RESEND_API_KEY)'); return 0; }
   let sent = 0;
   for (const r of list) {
+    if (gmail) {
+      try {
+        await gmail.sendMail({ from: { name: s.company_name || 'ShiftClock', address: GMAIL_USER }, to: r, subject, html, attachments: attachment ? [{ filename: attachment.filename, content: Buffer.from(attachment.bytes) }] : undefined });
+        sent++; await log(job, ref, r, 'sent', 'gmail');
+      } catch (e) { await log(job, ref, r, 'failed', `gmail: ${e instanceof Error ? e.message : String(e)}`); }
+      continue;
+    }
     const body: Row = { from: FROM, to: [r], subject, html };
     if (attachment) {
       let bin = '';
@@ -272,10 +289,10 @@ Deno.serve(async (req) => {
     if (me?.role !== 'owner') return json(403, { message: 'Only the owner can send a test email.' });
     if (body.job !== 'test') return json(400, { message: 'Unknown action.' });
     if (!me.notify_email) return json(400, { message: 'Add your email address under My settings first.' });
-    if (!RESEND) return json(409, { message: 'Emails are not set up yet: the RESEND_API_KEY secret is missing in Supabase.' });
+    if (!MAIL_ON) return json(409, { message: 'Emails are not set up yet: add GMAIL_USER and GMAIL_APP_PASSWORD in Supabase secrets.' });
     const ref = `test-${Date.now()}`;
     const n = await send({ ...s, emails_enabled: true }, 'test', ref, [me.notify_email], 'ShiftClock test email', page('It works', `Hi ${esc(me.full_name)}, emails from ShiftClock reach you.`, ''));
-    return n ? json(200, { ok: true }) : json(502, { message: 'The email service refused it. Check EMAIL_FROM and your Resend domain.' });
+    return n ? json(200, { ok: true }) : json(502, { message: 'The email service refused it. Check the Gmail app password (or EMAIL_FROM and your Resend domain).' });
   }
   const { data: ok } = await admin.rpc('check_cron_secret', { p_secret: secret });
   if (ok !== true) return json(403, { message: 'Bad secret.' });
@@ -287,7 +304,7 @@ Deno.serve(async (req) => {
     if (!b.user_id) return json(400, { message: 'user_id is required.' });
     const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date ?? '') ? b.date! : t.date;
     const week = mondayOf(date), ref = `test-${Date.now()}`;
-    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: RESEND ? 'on' : 'no key' });
+    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: MAILER });
   }
   const done: Record<string, number | string> = {};
   try {
@@ -306,5 +323,5 @@ Deno.serve(async (req) => {
   } catch (e) {
     done.error = e instanceof Error ? e.message : String(e);
   }
-  return json(200, { at: t, done, email: RESEND ? 'on' : 'no key' });
+  return json(200, { at: t, done, email: MAILER });
 });

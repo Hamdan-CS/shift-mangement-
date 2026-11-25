@@ -43,18 +43,27 @@ person's page and the copied text. Accounts made in the app are real Supabase lo
 
 ## Turn on emails (Resend)
 
-Emails are built and scheduled already. Until a key is added they are logged as "skipped" on the
+Emails are built and scheduled already. Until an email service is added they are logged as "skipped" on the
 Settings page and only in-app notifications are sent.
 
-1. Create a free account at resend.com and **verify your domain** (Resend → Domains → add the DNS records it shows).
-2. Create an API key (Resend → API Keys).
+**Gmail (free, no domain needed — what we use):**
+
+1. In your Google account turn on **2-Step Verification** (myaccount.google.com → Security).
+2. Open myaccount.google.com/apppasswords, create one called "ShiftClock" and copy the 16 letters.
 3. In Supabase → Edge Functions → **Secrets**, add:
 
    | Name | Value |
    |---|---|
-   | `RESEND_API_KEY` | the key from step 2 |
-   | `EMAIL_FROM` | e.g. `ShiftClock <shifts@yourdomain.com>` (must be on the verified domain) |
-   | `APP_URL` | `https://shiftclock-web-d448.vercel.app` (or your own domain) |
+   | `GMAIL_USER` | the Gmail address that sends, e.g. `you@gmail.com` |
+   | `GMAIL_APP_PASSWORD` | the 16-letter app password (not your normal password) |
+   | `APP_URL` | `https://shiftclock-web-d448.vercel.app` (optional, this is the default) |
+
+   Emails show the café name from Settings as the sender name. Gmail allows about 500 a day.
+   Sent through port 465 (Supabase blocks 25 and 587).
+
+**Resend instead** (only if you buy a domain): verify the domain at resend.com/domains, then set
+`RESEND_API_KEY` and `EMAIL_FROM` (`Cookiery PL <hours@yourdomain.com>`). Without a verified domain
+Resend only delivers to your own Resend sign-up address. When the Gmail secrets are set, Gmail is used.
 
 4. Settings → **Send me a test email**. If it arrives, the daily and weekly emails will too.
 
