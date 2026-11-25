@@ -37,7 +37,7 @@ export const DEMO_PROFILES: Profile[] = COOKIERY_DEMO ? COOKIERY_PROFILES : DEFA
 
 export const DEMO_SETTINGS: Settings = {
   id: 1,
-  company_name: 'Cookiery PL',
+  company_name: COOKIERY_DEMO ? 'Café' : 'Cookiery PL',
   currency: 'PLN',
   timezone: 'Europe/Warsaw',
   schedule_deadline_dow: 4,

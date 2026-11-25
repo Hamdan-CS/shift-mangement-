@@ -16,7 +16,7 @@ async page => {
     margin: { top: '14mm', right: '14mm', bottom: '16mm', left: '14mm' },
     displayHeaderFooter: true,
     headerTemplate: '<span></span>',
-    footerTemplate: '<div style="width:100%;font-family:Arial,sans-serif;font-size:8px;color:#8b909b;padding:0 14mm;display:flex;justify-content:space-between"><span>ShiftClock for Cookiery PL</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
+    footerTemplate: '<div style="width:100%;font-family:Arial,sans-serif;font-size:8px;color:#8b909b;padding:0 14mm;display:flex;justify-content:space-between"><span>ShiftClock for your café</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
   });
   // cover image for WhatsApp: the first page on a white A4 sheet
   await p.emulateMedia({ media: 'screen' });

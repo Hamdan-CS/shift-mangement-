@@ -1,4 +1,4 @@
-// Marketing guide screenshots (Cookiery PL demo, browser-only demo data).
+// Marketing guide screenshots (café demo, browser-only demo data).
 // Needs the café demo server on port 5176:
 //   PowerShell: $env:VITE_DEMO_AUTH='1'; $env:VITE_DEMO_SEED='cookiery'; npx vite --port 5176
 // Run: npx playwright-cli open about:blank

@@ -1,6 +1,6 @@
 /**
  * Marketing demo (dev only, VITE_DEMO_AUTH=1 + VITE_DEMO_SEED=cookiery): fills
- * the browser's demo stores with a believable Cookiery PL fortnight so the
+ * the browser's demo stores with a believable café fortnight so the
  * guide's screenshots look real. Two weeks of clock-ins, this week's (and
  * last/next week's) schedules, one pending correction, one pending leave
  * request, one late arrival today, two people off today, one deduction.
@@ -109,7 +109,7 @@ export function seedCookieryDemo() {
   const deductions = [{ id: id(), user_id: 'demo-magda', name: 'Uniform (apron)', type: 'fixed', amount: 45, recurring: 'once', start_date: monday, end_date: null, created_at: created }];
 
   /* ---- the QR at the counter ---- */
-  const locations: Location[] = [{ id: 'loc-counter', name: 'Cookiery PL · counter', lat: null, lng: null, radius_m: null, allow_static: false, active: true, created_at: created }];
+  const locations: Location[] = [{ id: 'loc-counter', name: 'Café · counter', lat: null, lng: null, radius_m: null, allow_static: false, active: true, created_at: created }];
 
   /* ---- bell: the two requests for the owner and the shift lead ---- */
   const notes: Notification[] = [];

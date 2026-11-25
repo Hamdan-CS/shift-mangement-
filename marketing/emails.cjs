@@ -1,4 +1,4 @@
-// Renders the automatic emails and the Excel sheets with the Cookiery PL demo data,
+// Renders the automatic emails and the Excel sheets with the café demo data,
 // for the marketing guide. Email HTML = the same layout as supabase/functions/cron
 // (page(), table() and each job's body), filled with numbers read from the running
 // demo app (port 5176, VITE_DEMO_SEED=cookiery). Owner reports get a small mail
@@ -43,7 +43,7 @@ ${cta ? `<tr><td style="padding:8px 24px 24px"><a href="${cta.href}" style="disp
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">',
     `<div style="max-width:640px;margin:0 auto;padding:22px 12px 0"><div style="background:#fff;border:1px solid #ebecef;border-radius:14px;padding:14px 18px;font-size:13px;color:#565c69;line-height:1.7">
 <div style="font-size:16px;font-weight:600;color:#0f1115;margin-bottom:4px">${esc(subject)}</div>
-<div><b style="color:#0f1115;font-weight:600">Cookiery PL</b> · to ${esc(to)}<span style="float:right">${esc(when)}</span></div>
+<div><b style="color:#0f1115;font-weight:600">Café</b> · to ${esc(to)}<span style="float:right">${esc(when)}</span></div>
 ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap:10px;border:1px solid #ebecef;border-radius:10px;padding:8px 12px"><span style="display:inline-block;width:26px;height:30px;border-radius:5px;background:#1f7a4d;color:#fff;font-size:10px;font-weight:700;text-align:center;line-height:30px">XLS</span><span><b style="color:#0f1115;font-weight:600">${esc(file)}</b><br><span style="font-size:12px">Excel file</span></span></div>` : ''}
 </div></div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:14px 12px 28px">`);
@@ -79,7 +79,7 @@ ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap
     const pr = person('demo-jakub');
     const earned = (pr.hourly_rate * d.minutes) / 60;
     const inner = table(['', ''], [['Clock in', hm(d.first_in)], ['Clock out', d.last_out ? hm(d.last_out) : 'still working'], ['Break', `${d.break_minutes} min`], ['Hours', `<b>${hours(d.minutes)}</b>`], ['Earned today', `<b>${money(earned)}</b>`]], [1]);
-    emails.push({ name: 'email-staff-daily', html: emailPage(`Your day, ${longDay(yesterday)}`, 'Here is today at Cookiery PL. Something wrong? Ask for a correction.', inner, { href: `${APP}/history`, label: 'Request a correction' }) });
+    emails.push({ name: 'email-staff-daily', html: emailPage(`Your day, ${longDay(yesterday)}`, 'Here is today at Café. Something wrong? Ask for a correction.', inner, { href: `${APP}/history`, label: 'Request a correction' }) });
   }
   // 2. staff weekly summary (Jakub, last week)
   {
@@ -94,7 +94,7 @@ ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap
     }
     rows.push(['<b>Total</b>', '', `<b>${hours(r.worked_minutes)}</b>`, `<b>${money(r.gross)}</b>`]);
     const sumUp = table(['', ''], [...(r.overtime_minutes ? [['Overtime', hours(r.overtime_minutes)]] : []), ['Gross', money(r.gross)], ...(r.deductions ? [['Deductions', `−${money(r.deductions)}`]] : []), ['Net pay', `<b>${money(r.net)}</b>`]], [1]);
-    emails.push({ name: 'email-staff-weekly', html: emailPage(`Your week, ${lastMon} to ${lastSun}`, 'Here are your hours at Cookiery PL. Something wrong? Ask for a correction.', table(['Day', 'In – out', 'Hours', 'Earned'], rows, [2, 3]) + '<div style="height:14px"></div>' + sumUp, { href: `${APP}/pay`, label: 'Open my pay' }) });
+    emails.push({ name: 'email-staff-weekly', html: emailPage(`Your week, ${lastMon} to ${lastSun}`, 'Here are your hours at Café. Something wrong? Ask for a correction.', table(['Day', 'In – out', 'Hours', 'Earned'], rows, [2, 3]) + '<div style="height:14px"></div>' + sumUp, { href: `${APP}/pay`, label: 'Open my pay' }) });
   }
   // 3 + 4. owner daily / weekly with the Excel file
   const ownerReport = (from, to, rep, days, shifts) => {
@@ -113,15 +113,15 @@ ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap
     const tot = (k) => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
     body.push(single ? ['<b>Total</b>', '', '', `<b>${hours(tot('worked_minutes'))}</b>`, `<b>${money(tot('gross'))}</b>`, ''] : ['<b>Total</b>', '', `<b>${hours(tot('worked_minutes'))}</b>`, `<b>${hours(tot('overtime_minutes'))}</b>`, `<b>${money(tot('gross'))}</b>`, `<b>${money(tot('deductions'))}</b>`, `<b>${money(tot('net'))}</b>`]);
     const late = rows.reduce((a, r) => a + r.late_count, 0), absent = rows.reduce((a, r) => a + r.absent_count, 0);
-    const intro = `${single ? longDay(from) : `Week ${from} to ${to}`} · Cookiery PL. ${late} late, ${absent} absent, 2 requests waiting for approval. The Excel file has the full detail.`;
+    const intro = `${single ? longDay(from) : `Week ${from} to ${to}`} · Café. ${late} late, ${absent} absent, 2 requests waiting for approval. The Excel file has the full detail.`;
     const subject = single ? `Daily report ${from}: ${hours(tot('worked_minutes'))}, ${money(tot('gross'))}` : `Weekly report ${from} – ${to}: net ${money(tot('net'))}`;
     return { subject, html: emailPage(single ? 'Daily report' : 'Weekly report', intro, table(head, body, single ? [1, 3, 4] : [1, 2, 3, 4, 5, 6]), { href: `${APP}/admin/${single ? 'timesheets' : 'payroll'}`, label: single ? 'Open timesheets' : 'Open payroll' }) };
   };
   {
     const o = ownerReport(yesterday, yesterday, data.dayRep, data.dayDays, data.dayShifts);
-    emails.push({ name: 'email-owner-daily', html: inbox(o.html, { to: 'you, your accountant', subject: o.subject, file: `ShiftClock_Cookiery_PL_${yesterday}_${yesterday}.xlsx`, when: '23:15' }) });
+    emails.push({ name: 'email-owner-daily', html: inbox(o.html, { to: 'you, your accountant', subject: o.subject, file: `ShiftClock_Cafe_${yesterday}_${yesterday}.xlsx`, when: '23:15' }) });
     const w = ownerReport(lastMon, lastSun, data.wkRep, data.wkDays, data.wkShifts);
-    emails.push({ name: 'email-owner-weekly', html: inbox(w.html, { to: 'you, your accountant', subject: w.subject, file: `ShiftClock_Cookiery_PL_${lastMon}_${lastSun}.xlsx`, when: 'Sunday 23:30' }) });
+    emails.push({ name: 'email-owner-weekly', html: inbox(w.html, { to: 'you, your accountant', subject: w.subject, file: `ShiftClock_Cafe_${lastMon}_${lastSun}.xlsx`, when: 'Sunday 23:30' }) });
   }
   // 5. approval needed (instant)
   emails.push({ name: 'email-approval-needed', html: emailPage('Approval needed: Piotr Wójcik asked to fix a clock time', 'Piotr Wójcik asked to correct a clock time.', '', { href: `${APP}/admin/approvals`, label: 'Review request' }) });
@@ -156,7 +156,7 @@ ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap
     .tabs{display:flex;gap:2px;padding:6px 10px;background:#f3f4f6;border-top:1px solid #d9dce1;font:12px 'Segoe UI',Arial}
     .tabs span{padding:4px 12px;color:#555}.tabs span.on{background:#fff;color:#1f7a4d;font-weight:700;border-bottom:2px solid #1f7a4d}
   </style></head><body>
-  <div class="bar">ShiftClock_Cookiery_PL_${lastMon}_${lastSun}.xlsx <span>· ${title}</span></div>
+  <div class="bar">ShiftClock_Cafe_${lastMon}_${lastSun}.xlsx <span>· ${title}</span></div>
   <table><colgroup><col style="width:30px">${widths.map((w) => `<col style="width:${w}px">`).join('')}</colgroup>
   <tr><th class="col"></th>${cols.map((_, i) => `<th class="col">${String.fromCharCode(65 + i)}</th>`).join('')}</tr>
   <tr class="h"><td class="rn">1</td>${cols.map((c) => `<td>${c}</td>`).join('')}</tr>
@@ -172,7 +172,7 @@ ${file ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap
     const sum = (k) => rep.reduce((a, r) => a + Number(r[k] ?? 0), 0);
     rows.push({ total: true, num: NUM, cells: ['Total', '', sum('days_worked'), hmm(sum('worked_minutes')), hmm(sum('regular_minutes')), hmm(sum('overtime_minutes')), '', xlMoney(sum('gross')), xlMoney(sum('deductions')), xlMoney(sum('net')), sum('late_count'), sum('absent_count'), sum('leave_days')] });
     rows.push({ cells: [] });
-    rows.push({ cells: [`<i style="color:#777">Cookiery PL · ${lastMon} to ${lastSun} · times in Europe/Warsaw</i>`] });
+    rows.push({ cells: [`<i style="color:#777">Café · ${lastMon} to ${lastSun} · times in Europe/Warsaw</i>`] });
     const html = sheet('Summary', ['Employee', 'Job title', 'Days worked', 'Hours', 'Regular', 'Overtime', 'Rate / h', 'Gross', 'Deductions', 'Net', 'Late', 'Absent', 'Leave days'], rows, [170, 90, 82, 62, 62, 66, 80, 96, 86, 96, 44, 52, 72], tabs, 'Summary');
     await p.setViewportSize({ width: 1300, height: 120 });
     await p.setContent(html, { waitUntil: 'load' });
