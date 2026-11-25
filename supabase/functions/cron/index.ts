@@ -145,27 +145,27 @@ async function instant(s: Settings) {
   return n;
 }
 
-async function daily(s: Settings, date: string) {
+async function daily(s: Settings, date: string, only?: string, ref = date) {
   const [{ data: days }, ps] = await Promise.all([admin.rpc('pay_days', { p_from: date, p_to: date }), people()]);
   const money = moneyF(s);
   let n = 0;
   for (const d of (days ?? []) as Row[]) {
     const p = ps.find((x) => x.id === d.user_id);
-    if (!p?.notify_email || p.email_daily === false) continue;
+    if (!p?.notify_email || p.email_daily === false || (only && p.id !== only)) continue;
     const earned = (Number(p.hourly_rate ?? 0) * d.minutes) / 60;
     const inner = table(['', ''], [['Clock in', hm(d.first_in, s.timezone)], ['Clock out', d.last_out ? hm(d.last_out, s.timezone) : 'still working'], ['Break', `${d.break_minutes} min`], ['Hours', `<b>${hours(d.minutes)}</b>`], ['Earned today', `<b>${money(earned)}</b>`]], [1]);
-    n += await send(s, 'daily', date, [p.notify_email], `Your day: ${hours(d.minutes)}`, page(`Your day, ${longDay(date)}`, `Here is today at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, inner, { href: `${APP}/history`, label: 'Request a correction' }));
+    n += await send(s, 'daily', ref, [p.notify_email], `Your day: ${hours(d.minutes)}`, page(`Your day, ${longDay(date)}`, `Here is today at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, inner, { href: `${APP}/history`, label: 'Request a correction' }));
   }
   return n;
 }
 
-async function staffWeekly(s: Settings, from: string, to: string) {
+async function staffWeekly(s: Settings, from: string, to: string, only?: string, ref = from) {
   const [{ data: rep }, { data: days }, ps] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to }), people()]);
   const money = moneyF(s);
   let n = 0;
   for (const r of (rep ?? []) as Row[]) {
     const p = ps.find((x) => x.id === r.user_id);
-    if (!p?.notify_email || p.email_weekly === false || !r.worked_minutes) continue;
+    if (!p?.notify_email || p.email_weekly === false || !r.worked_minutes || (only && p.id !== only)) continue;
     const mine = ((days ?? []) as Row[]).filter((d) => d.user_id === r.user_id);
     const rows: (string | number)[][] = [];
     for (let i = 0; i < 7; i++) {
@@ -181,7 +181,7 @@ async function staffWeekly(s: Settings, from: string, to: string) {
       ...(Number(r.deductions) ? [['Deductions', `−${money(Number(r.deductions))}`]] : []),
       ['Net pay', `<b>${money(Number(r.net))}</b>`],
     ], [1]);
-    n += await send(s, 'staff_weekly', from, [p.notify_email], `Your week: ${hours(r.worked_minutes)}, net ${money(Number(r.net))}`,
+    n += await send(s, 'staff_weekly', ref, [p.notify_email], `Your week: ${hours(r.worked_minutes)}, net ${money(Number(r.net))}`,
       page(`Your week, ${from} to ${to}`, `Here are your hours at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, table(['Day', 'In – out', 'Hours', 'Earned'], rows, [2, 3]) + '<div style="height:14px"></div>' + sumUp, { href: `${APP}/pay`, label: 'Open my pay' }));
   }
   return n;
@@ -256,7 +256,7 @@ async function missing(s: Settings, week: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { message: 'Use POST.' });
-  let body: { job?: string } = {};
+  let body: { job?: string; [k: string]: unknown } = {};
   try { body = await req.json(); } catch { /* empty body */ }
 
   const { data: settings } = await admin.from('settings').select('*').eq('id', 1).single();
@@ -281,6 +281,14 @@ Deno.serve(async (req) => {
   if (ok !== true) return json(403, { message: 'Bad secret.' });
 
   const t = nowIn(s.timezone);
+  // test one person's daily + weekly hours emails (cron secret only): { job: 'preview', user_id, date }
+  if (body.job === 'preview') {
+    const b = body as { user_id?: string; date?: string };
+    if (!b.user_id) return json(400, { message: 'user_id is required.' });
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date ?? '') ? b.date! : t.date;
+    const week = mondayOf(date), ref = `test-${Date.now()}`;
+    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: RESEND ? 'on' : 'no key' });
+  }
   const done: Record<string, number | string> = {};
   try {
     done.instant = await instant(s);
