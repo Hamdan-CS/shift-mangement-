@@ -15,7 +15,8 @@
 // Resend (RESEND_API_KEY); with neither, emails are logged as skipped
 // (in-app notifications still happen).
 //
-// The owner can also call it signed in with { job: 'test' } to get a test email.
+// Signed in (no secret): the owner can send { job: 'test' }; anyone can send
+// { job: 'me', kind: 'pay' | 'schedule' } to email themselves ("Email me" buttons).
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 import nodemailer from 'npm:nodemailer@6.9.16';
 import { Buffer } from 'node:buffer';
@@ -204,6 +205,50 @@ async function staffWeekly(s: Settings, from: string, to: string, only?: string,
   return n;
 }
 
+/** "Email me" from the Pay page: one person's hours and pay for any period (up to 62 days). */
+async function payFor(s: Settings, p: Row, from: string, to: string, ref: string) {
+  const [{ data: rep }, { data: days }] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to })]);
+  const r = ((rep ?? []) as Row[]).find((x) => x.user_id === p.id) ?? { worked_minutes: 0, overtime_minutes: 0, gross: 0, deductions: 0, net: 0, rate: p.hourly_rate };
+  const money = moneyF(s);
+  const mine = ((days ?? []) as Row[]).filter((d) => d.user_id === p.id).sort((a, b) => (a.day < b.day ? -1 : 1));
+  const rows: (string | number)[][] = mine.map((d) => [
+    new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }),
+    `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}${d.approved_by ? `<br><span style="color:#8b909b;font-size:12px">approved by ${esc(d.approved_by)}</span>` : ''}`,
+    hours(d.minutes), money((Number(r.rate ?? 0) * d.minutes) / 60),
+  ]);
+  if (!rows.length) rows.push(['No hours in this period', '', '', '']);
+  rows.push(['<b>Total</b>', '', `<b>${hours(r.worked_minutes)}</b>`, `<b>${money(Number(r.gross))}</b>`]);
+  const sumUp = table(['', ''], [
+    ['Days worked', String(mine.length)],
+    ...(r.overtime_minutes ? [['Overtime', hours(r.overtime_minutes)]] : []),
+    ['Gross', money(Number(r.gross))],
+    ...(Number(r.deductions) ? [['Deductions', `−${money(Number(r.deductions))}`]] : []),
+    ['Net pay', `<b>${money(Number(r.net))}</b>`],
+  ], [1]);
+  const range = from === to ? longDay(from) : `${longDay(from)} to ${longDay(to)}`;
+  return send({ ...s, emails_enabled: true }, 'me_pay', ref, [p.notify_email], `Your hours and pay: ${hours(r.worked_minutes)}, net ${money(Number(r.net))}`,
+    page('Your hours and pay', `${range} at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, table(['Day', 'In – out', 'Hours', 'Earned'], rows, [2, 3]) + '<div style="height:14px"></div>' + sumUp, { href: `${APP}/pay`, label: 'Open my pay' }));
+}
+
+/** "Email me" from My schedule: one person's planned shifts for a week. */
+async function scheduleFor(s: Settings, p: Row, week: string, ref: string) {
+  const { data } = await admin.from('schedule_shifts').select('date, start_time, end_time').eq('user_id', p.id).gte('date', week).lte('date', addDays(week, 6)).order('date').order('start_time');
+  const shifts = (data ?? []) as Row[];
+  let total = 0;
+  const rows: (string | number)[][] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(week, i);
+    const list = shifts.filter((x) => x.date === day);
+    const m = list.reduce((a, x) => a + toMin(x.end_time) - toMin(x.start_time), 0);
+    total += m;
+    rows.push([new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' }),
+      list.length ? list.map((x) => `${String(x.start_time).slice(0, 5)} – ${String(x.end_time).slice(0, 5)}`).join('<br>') : '<span style="color:#8b909b">Off</span>', m ? hours(m) : '']);
+  }
+  rows.push(['<b>Total</b>', '', `<b>${hours(total)}</b>`]);
+  return send({ ...s, emails_enabled: true }, 'me_schedule', ref, [p.notify_email], `Your schedule, week of ${longDay(week)}: ${hours(total)}`,
+    page('Your schedule', `Week of ${longDay(week)} at ${esc(s.company_name)}.`, table(['Day', 'Shift', 'Hours'], rows, [2]), { href: `${APP}/schedule`, label: 'Open my schedule' }));
+}
+
 async function ownerReport(s: Settings, job: 'owner_daily' | 'owner_weekly', from: string, to: string) {
   const ps = await people();
   const recipients = managersTo(ps, s);
@@ -285,7 +330,28 @@ Deno.serve(async (req) => {
     const asUser = createClient(url, anonKey, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } }, auth: { persistSession: false } });
     const { data: who } = await asUser.auth.getUser();
     if (!who.user) return json(401, { message: 'Sign in first.' });
-    const { data: me } = await admin.from('profiles').select('role, notify_email, full_name').eq('id', who.user.id).single();
+    const { data: me } = await admin.from('profiles').select('id, role, active, notify_email, full_name, hourly_rate').eq('id', who.user.id).single();
+    // "Email me" (anyone): { job: 'me', kind: 'pay', from, to } or { job: 'me', kind: 'schedule', week }
+    if (body.job === 'me') {
+      if (!me?.active) return json(403, { message: 'Your account is not active.' });
+      if (!me.notify_email) return json(400, { message: 'Add your email under My settings first.' });
+      if (!MAIL_ON) return json(409, { message: 'Emails are not set up yet. Ask the owner.' });
+      const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true }).like('job', 'me_%').eq('recipient', String(me.notify_email).toLowerCase()).gte('created_at', new Date(Date.now() - 60_000).toISOString());
+      if ((count ?? 0) >= 3) return json(429, { message: 'Too many emails. Wait a minute and try again.' });
+      const ISO = /^\d{4}-\d{2}-\d{2}$/;
+      const ref = `me-${Date.now()}`;
+      let n = 0;
+      if (body.kind === 'schedule') {
+        const week = String(body.week ?? '');
+        if (!ISO.test(week)) return json(400, { message: 'Pick a week.' });
+        n = await scheduleFor(s, me, mondayOf(week), ref);
+      } else {
+        const from = String(body.from ?? ''), to = String(body.to ?? '');
+        if (!ISO.test(from) || !ISO.test(to) || from > to || Date.parse(to) - Date.parse(from) > 62 * 86_400_000) return json(400, { message: 'Pick a period of up to two months.' });
+        n = await payFor(s, me, from, to, ref);
+      }
+      return n ? json(200, { ok: true, to: me.notify_email }) : json(502, { message: 'The email could not be sent. Try again later.' });
+    }
     if (me?.role !== 'owner') return json(403, { message: 'Only the owner can send a test email.' });
     if (body.job !== 'test') return json(400, { message: 'Unknown action.' });
     if (!me.notify_email) return json(400, { message: 'Add your email address under My settings first.' });
@@ -304,7 +370,7 @@ Deno.serve(async (req) => {
     if (!b.user_id) return json(400, { message: 'user_id is required.' });
     const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date ?? '') ? b.date! : t.date;
     const week = mondayOf(date), ref = `test-${Date.now()}`;
-    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: MAILER, gmail_user: GMAIL_USER.replace(/^(.).*(@.*)$/, '$1…$2'), app_password_length: GMAIL_PASS.length });
+    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: MAILER });
   }
   const done: Record<string, number | string> = {};
   try {

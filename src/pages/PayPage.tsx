@@ -9,6 +9,7 @@ import { usePeriod } from '@/components/pay/PeriodPicker';
 import { copyText, formatWorked } from '@/utils/summary';
 import { formatHours, formatMoney } from '@/utils/labels';
 import { notify } from '@/utils/notify';
+import { EmailMeButton } from '@/components/shared/EmailMeButton';
 import { clockTime } from '@/utils/tz';
 
 /**
@@ -53,8 +54,8 @@ export function PayPage() {
     <>
       <WPageHeader
         title="Pay"
-        subtitle="Your hours, gross, deductions and net. Copy sends it ready to paste in a chat."
-        actions={<WButton onClick={copy} disabled={loading}><Copy size={17} /> Copy hours &amp; pay</WButton>}
+        subtitle="Your hours, gross, deductions and net. Copy it for a chat, or email it to yourself."
+        actions={<><WButton onClick={copy} disabled={loading}><Copy size={17} /> Copy hours &amp; pay</WButton><EmailMeButton disabled={loading} request={() => ({ kind: 'pay', from: period.from, to: period.to })} /></>}
       />
       <div className="mb-4">{picker}</div>
       <div className="sc-grid pay-grid">

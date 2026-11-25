@@ -79,6 +79,10 @@ What gets sent (all in company time, times set on Settings):
 | Schedule missing | managers | Deadline day, after the deadline |
 | Approval needed / result / shift changed / shift auto-closed | the person concerned | Within 5 minutes |
 
+**Email me buttons (everyone):** the Pay page has **Email me** (hours, pay and each worked day for the
+period on screen) and My schedule has a mail icon (that week's shifts). They go to the email saved in
+My settings, at most 3 a minute per person. If no email is saved, the app asks you to add one.
+
 ## Schedule views
 
 Both schedule pages have **Day / Week / Month**:

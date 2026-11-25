@@ -56,3 +56,17 @@ export async function deleteView(id: string): Promise<void> {
   const { error } = await supabase.from('report_views').delete().eq('id', id);
   if (error) throw new AdminError('Could not delete the view.');
 }
+
+/* ---------------- "Email me" (everyone) ---------------- */
+
+export type EmailMeRequest = { kind: 'pay'; from: string; to: string } | { kind: 'schedule'; week: string };
+
+/** Emails the signed-in person their own hours and pay, or their week's schedule. Returns the address it went to. */
+export async function emailMe(req: EmailMeRequest): Promise<string> {
+  if (demoAuth) throw new AdminError('Emails need the real database (demo mode has no server).');
+  const { data, error } = await supabase.functions.invoke('cron', { body: { job: 'me', ...req } });
+  if (!error) return (data as { to?: string } | null)?.to ?? '';
+  let j: { message?: string } = {};
+  try { j = await (error as { context?: Response }).context?.json(); } catch { /* not JSON */ }
+  throw new AdminError(j.message ?? 'Could not send the email.');
+}

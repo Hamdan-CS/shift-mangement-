@@ -19,6 +19,7 @@ import { copyWeek, deleteShift, ensureWeek, fetchWeek, hm, saveShift, ScheduleEr
 import { formatHours } from '@/utils/labels';
 import { copyText, formatAvailability } from '@/utils/summary';
 import { notify } from '@/utils/notify';
+import { EmailMeButton } from '@/components/shared/EmailMeButton';
 import { dayKey, minutesOfDay, startOfWeek } from '@/utils/tz';
 import type { ScheduleShift, ScheduleWeek, WeekStatus } from '@/types';
 
@@ -168,7 +169,10 @@ export function SchedulePage() {
                 <div className="sc-big tnum">{shifts === null ? '…' : formatHours(total)}<small>planned</small></div>
                 <p className="mt-1 text-[14px] text-ink-3 lg:text-[12.5px]">{locked ? 'Locked by your manager. Ask them for changes.' : `Submit by ${deadline}`}</p>
               </div>
-              <WChip tone={status.tone}>{status.label}</WChip>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <WChip tone={status.tone}>{status.label}</WChip>
+                <EmailMeButton icon disabled={shifts === null} request={() => ({ kind: 'schedule', week: weekStart })} />
+              </div>
             </div>
             {!locked && (
               <WButton block className="mt-3" onClick={submit} disabled={busy !== null || shifts === null || total === 0}>
