@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Crosshair, MessageSquare } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, Crosshair, Maximize2, MessageSquare, X } from 'lucide-react';
 import { WAvatar, WButton, WChip, WSegmented } from '@/components/app/ui';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { useNow } from '@/hooks/useNow';
@@ -27,6 +28,7 @@ export function TodaySchedule({ rows, loading, dayStart = 6 * 60, dayEnd = 24 * 
 }) {
   const wide = useMediaQuery('(min-width: 640px)');
   const [view, setView] = useState<View>('timeline');
+  const [full, setFull] = useState(false);
   const [filter, setFilter] = useState<Group | 'all'>('all');
   const [picked, setPicked] = useState<BoardRow | null>(null);
   const now = minutesNowIn(timeZone, useNow(30_000));
@@ -77,8 +79,9 @@ export function TodaySchedule({ rows, loading, dayStart = 6 * 60, dayEnd = 24 * 
       )}
 
       {view === 'timeline' && (
-        <Timeline rows={timelineRows} loading={loading} dayStart={dayStart} dayEnd={dayEnd} now={now} compact={!wide} onPick={setPicked} />
+        <Timeline rows={timelineRows} loading={loading} dayStart={dayStart} dayEnd={dayEnd} now={now} compact={!wide} onPick={setPicked} onExpand={() => setFull(true)} />
       )}
+      {full && <FullTimeline title={title} rows={timelineRows} dayStart={dayStart} dayEnd={dayEnd} now={now} onClose={() => setFull(false)} />}
 
       {view === 'list' && !loading && (
         <div className={cn('tb-groups', filter !== 'all' && 'one')}>
@@ -211,8 +214,10 @@ function shiftBar(r: BoardRow, now: number): { fill: number; now: number | null 
  * in view while you swipe), the shift bar under it. Phones: 76px an hour,
  * swipe sideways; "Now" jumps back to the red line; edge fades show more.
  */
-function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick }: {
-  rows: BoardRow[]; loading: boolean; dayStart: number; dayEnd: number; now: number; compact: boolean; onPick(r: BoardRow): void;
+function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick, onExpand, lead, end }: {
+  rows: BoardRow[]; loading: boolean; dayStart: number; dayEnd: number; now: number; compact: boolean; onPick(r: BoardRow): void; onExpand?(): void;
+  /** full screen: title on the left of the toolbar, close button on the right */
+  lead?: ReactNode; end?: ReactNode;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -258,11 +263,13 @@ function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick }: {
   return (
     <>
       <div className="tl-tools">
-        <span className="tl-range tnum">{hhmm(from)} – {hhmm(to)}</span>
+        {lead ?? <span className="tl-range tnum">{hhmm(from)} – {hhmm(to)}</span>}
         <div className="tl-tools-btns">
           <button type="button" className="sc-iconbtn" onClick={() => nudge(-1)} disabled={!edges.left} aria-label="Earlier hours"><ChevronLeft size={18} /></button>
           {nowIn && <button type="button" className="tl-nowbtn" onClick={() => scrollToNow(true)}><Crosshair size={15} /> Now</button>}
           <button type="button" className="sc-iconbtn" onClick={() => nudge(1)} disabled={!edges.right} aria-label="Later hours"><ChevronRight size={18} /></button>
+          {onExpand && <button type="button" className="sc-iconbtn tl-expand" onClick={onExpand} aria-label="Full screen" title="Full screen"><Maximize2 size={17} /></button>}
+          {end}
         </div>
       </div>
       <div className={cn('tl-wrap', edges.left && 'fade-l', edges.right && 'fade-r')}>
@@ -339,6 +346,80 @@ function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick }: {
         <span><i className="lg now" />Now</span>
       </div>
     </>
+  );
+}
+
+/* ---------------- full screen (phones: sideways) ---------------- */
+
+type OrientationLock = { lock?(o: string): Promise<void>; unlock?(): void };
+
+/**
+ * The timeline over the whole screen. Tries real full screen + landscape lock
+ * (Android Chrome). Where the phone can't rotate for us (iPhone Safari), and
+ * the phone is upright, the view is drawn turned sideways instead. Tapping a
+ * person shows their details inside this view, so they read the right way up.
+ */
+function FullTimeline({ title, rows, dayStart, dayEnd, now, onClose }: { title: string; rows: BoardRow[]; dayStart: number; dayEnd: number; now: number; onClose(): void }) {
+  const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  const [pick, setPick] = useState<BoardRow | null>(null);
+  const rotate = size.h > size.w && size.w < 640;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const orient = (screen as unknown as { orientation?: OrientationLock }).orientation;
+    let alive = true;
+    void (async () => {
+      try { if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' }); } catch { /* not allowed here */ }
+      try { if (alive) await orient?.lock?.('landscape'); } catch { /* iPhone / desktop: we rotate with CSS */ }
+    })();
+    const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    const onFs = () => { if (!document.fullscreenElement) onCloseRef.current(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
+    window.addEventListener('resize', onResize);
+    document.addEventListener('fullscreenchange', onFs);
+    window.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      alive = false;
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('fullscreenchange', onFs);
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+      try { orient?.unlock?.(); } catch { /* ignore */ }
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    };
+  }, []);
+  const box = rotate ? { width: size.h, height: size.w } : undefined;
+  return createPortal(
+    <div className="tl-full" role="dialog" aria-modal="true" aria-label={`${title}, full screen`}>
+      <div className={cn('tl-full-in', rotate && 'rot')} style={box}>
+        <Timeline
+          rows={rows} loading={false} dayStart={dayStart} dayEnd={dayEnd} now={now} compact={false} onPick={setPick}
+          lead={<span className="tl-full-t"><b>{title}</b><span className="tnum">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span></span>}
+          end={<button type="button" className="tl-close" onClick={onClose} aria-label="Close full screen"><X size={18} /> Close</button>}
+        />
+        {pick && (
+          <div className="tl-full-pick" role="dialog" aria-label={pick.person.full_name}>
+            <div className="flex items-center gap-2">
+              <WAvatar name={pick.person.full_name} src={pick.person.avatar_url} size={32} />
+              <span className="min-w-0 flex-1"><b className="block truncate">{pick.person.full_name}</b><small className="block truncate text-ink-3">{describe(pick, now).line}</small></span>
+              <WChip tone={STATUS_META[pick.status].tone}>{STATUS_META[pick.status].label}</WChip>
+              <button type="button" className="sc-iconbtn" onClick={() => setPick(null)} aria-label="Close details"><X size={18} /></button>
+            </div>
+            <dl className="tl-dl mt-3">
+              <div><dt>Scheduled</dt><dd className="tnum">{pick.shiftStart !== null ? `${hhmm(pick.shiftStart)} – ${hhmm(pick.shiftEnd)}` : 'No shift'}</dd></div>
+              <div><dt>Clocked in</dt><dd className="tnum">{hhmm(pick.clockIn)}</dd></div>
+              <div><dt>Clocked out</dt><dd className="tnum">{pick.clockIn !== null && pick.clockOut === null ? 'Still working' : hhmm(pick.clockOut)}</dd></div>
+              <div><dt>Worked</dt><dd className="tnum">{formatHours(workedSoFar(pick, now))}</dd></div>
+            </dl>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 

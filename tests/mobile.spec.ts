@@ -18,3 +18,14 @@ test('phone: pay page has a Copy button', async ({ page }) => {
   await page.goto('/pay');
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
+
+test('phone: Today timeline opens full screen and closes', async ({ page }) => {
+  await signIn(page, 'ali');
+  await page.goto('/today');
+  await page.getByRole('button', { name: 'Full screen' }).click();
+  const full = page.getByRole('dialog', { name: /full screen/ });
+  await expect(full).toBeVisible();
+  await expect(full.getByRole('button', { name: 'Close full screen' })).toBeVisible();
+  await full.getByRole('button', { name: 'Close full screen' }).click();
+  await expect(full).toHaveCount(0);
+});
