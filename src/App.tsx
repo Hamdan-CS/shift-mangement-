@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -11,27 +11,30 @@ import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { DESKTOP, useMediaQuery } from '@/hooks/useMediaQuery';
+import { lazyPage } from '@/utils/lazyPage';
+import { PageErrorBoundary } from '@/components/shared/PageErrorBoundary';
 
 // Home and login load first; everything else is split out (PLAN.md 10c: lazy-load admin pages).
-const HistoryPage = lazy(() => import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
-const SchedulePage = lazy(() => import('@/pages/SchedulePage').then((m) => ({ default: m.SchedulePage })));
-const AdminSchedulePage = lazy(() => import('@/pages/AdminSchedulePage').then((m) => ({ default: m.AdminSchedulePage })));
-const KioskPage = lazy(() => import('@/pages/KioskPage').then((m) => ({ default: m.KioskPage })));
-const ClockScanPage = lazy(() => import('@/pages/ClockScanPage').then((m) => ({ default: m.ClockScanPage })));
-const LocationsPage = lazy(() => import('@/pages/LocationsPage').then((m) => ({ default: m.LocationsPage })));
-const LeavePage = lazy(() => import('@/pages/LeavePage').then((m) => ({ default: m.LeavePage })));
-const ApprovalsPage = lazy(() => import('@/pages/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })));
-const MessagesPage = lazy(() => import('@/pages/MessagesPage').then((m) => ({ default: m.MessagesPage })));
-const PayPage = lazy(() => import('@/pages/PayPage').then((m) => ({ default: m.PayPage })));
-const PayrollPage = lazy(() => import('@/pages/PayrollPage').then((m) => ({ default: m.PayrollPage })));
-const PeoplePage = lazy(() => import('@/pages/PeoplePage').then((m) => ({ default: m.PeoplePage })));
-const PersonPage = lazy(() => import('@/pages/PersonPage').then((m) => ({ default: m.PersonPage })));
-const TimesheetsPage = lazy(() => import('@/pages/TimesheetsPage').then((m) => ({ default: m.TimesheetsPage })));
-const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
-const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
-const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })));
-const TodayPage = lazy(() => import('@/pages/TodayPage').then((m) => ({ default: m.TodayPage })));
-const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
+// lazyPage: if a page file from an older version is gone after an update, reload once (no blank screen).
+const HistoryPage = lazyPage(() => import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const SchedulePage = lazyPage(() => import('@/pages/SchedulePage').then((m) => ({ default: m.SchedulePage })));
+const AdminSchedulePage = lazyPage(() => import('@/pages/AdminSchedulePage').then((m) => ({ default: m.AdminSchedulePage })));
+const KioskPage = lazyPage(() => import('@/pages/KioskPage').then((m) => ({ default: m.KioskPage })));
+const ClockScanPage = lazyPage(() => import('@/pages/ClockScanPage').then((m) => ({ default: m.ClockScanPage })));
+const LocationsPage = lazyPage(() => import('@/pages/LocationsPage').then((m) => ({ default: m.LocationsPage })));
+const LeavePage = lazyPage(() => import('@/pages/LeavePage').then((m) => ({ default: m.LeavePage })));
+const ApprovalsPage = lazyPage(() => import('@/pages/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })));
+const MessagesPage = lazyPage(() => import('@/pages/MessagesPage').then((m) => ({ default: m.MessagesPage })));
+const PayPage = lazyPage(() => import('@/pages/PayPage').then((m) => ({ default: m.PayPage })));
+const PayrollPage = lazyPage(() => import('@/pages/PayrollPage').then((m) => ({ default: m.PayrollPage })));
+const PeoplePage = lazyPage(() => import('@/pages/PeoplePage').then((m) => ({ default: m.PeoplePage })));
+const PersonPage = lazyPage(() => import('@/pages/PersonPage').then((m) => ({ default: m.PersonPage })));
+const TimesheetsPage = lazyPage(() => import('@/pages/TimesheetsPage').then((m) => ({ default: m.TimesheetsPage })));
+const ReportsPage = lazyPage(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const SettingsPage = lazyPage(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const AccountPage = lazyPage(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })));
+const TodayPage = lazyPage(() => import('@/pages/TodayPage').then((m) => ({ default: m.TodayPage })));
+const ResetPasswordPage = lazyPage(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
 
 function ThemedToaster() {
   const { theme } = useTheme();
@@ -49,8 +52,8 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
             {/* full-screen pages, outside the app shell */}
-            <Route path="/kiosk/:locationId" element={<RoleRoute allowed={['owner', 'manager']}><Suspense fallback={null}><KioskPage /></Suspense></RoleRoute>} />
-            <Route path="/clock" element={<RoleRoute><Suspense fallback={null}><ClockScanPage /></Suspense></RoleRoute>} />
+            <Route path="/kiosk/:locationId" element={<RoleRoute allowed={['owner', 'manager']}><PageErrorBoundary resetKey="KioskPage"><Suspense fallback={null}><KioskPage /></Suspense></PageErrorBoundary></RoleRoute>} />
+            <Route path="/clock" element={<RoleRoute><PageErrorBoundary resetKey="ClockScanPage"><Suspense fallback={null}><ClockScanPage /></Suspense></PageErrorBoundary></RoleRoute>} />
             <Route element={<RoleRoute><ClockProvider><AppShell /></ClockProvider></RoleRoute>}>
               <Route index element={<DashboardPage />} />
               <Route path="/today" element={<TodayPage />} />

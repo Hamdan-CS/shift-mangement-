@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { MobileTabBar } from '@/components/navigation/MobileTabBar';
 import { BottomSheet } from '@/components/shared/sheet/BottomSheet';
 import { LoopLoader } from '@/components/shared/ui/LoopLoader';
+import { PageErrorBoundary } from '@/components/shared/PageErrorBoundary';
 import { useSettings } from '@/hooks/useSettings';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { DESKTOP, useMediaQuery } from '@/hooks/useMediaQuery';
@@ -217,12 +218,15 @@ export function AppShell() {
         )}
 
         <main className="app-main">
-          <Suspense fallback={<div className="grid min-h-[40dvh] place-items-center"><LoopLoader size={28} /></div>}>
-            {/* keyed by page: each route change replays the enter animation (motion.css) */}
-            <div key={pageKey} className="sc-page">
-              <Outlet />
-            </div>
-          </Suspense>
+          {/* a page that fails to load shows a Reload card, never an empty screen */}
+          <PageErrorBoundary resetKey={pageKey}>
+            <Suspense fallback={<div className="grid min-h-[40dvh] place-items-center"><LoopLoader size={28} /></div>}>
+              {/* keyed by page: each route change replays the enter animation (motion.css) */}
+              <div key={pageKey} className="sc-page">
+                <Outlet />
+              </div>
+            </Suspense>
+          </PageErrorBoundary>
         </main>
       </div>
 

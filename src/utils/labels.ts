@@ -38,7 +38,7 @@ export function formatMoney(amount: number, currency = 'PLN'): string {
   try {
     // Polish style "1 234,50 zł": pl-PL leaves 4-digit amounts ungrouped by default, so group always
     const opts = { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' } as unknown as Intl.NumberFormatOptions;
-    return new Intl.NumberFormat(MONEY_LOCALE[currency] ?? 'en-US', opts).format(amount).replace(/ /g, ' ');
+    return new Intl.NumberFormat(MONEY_LOCALE[currency] ?? 'en-US', opts).format(amount).replace(/\u202f/g, '\u00a0');
   } catch {
     return `${amount.toFixed(2)} ${currency}`;
   }

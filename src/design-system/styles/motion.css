@@ -10,7 +10,8 @@
 }
 
 /* ---------- page change ---------- */
-.sc-page { animation: page-in .36s var(--ease-out) both; }
+/* 'backwards', not 'both': if the animation is stopped (tab in background, low-power mode) the page still shows */
+.sc-page { animation: page-in .36s var(--ease-out) backwards; }
 @keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* ---------- cards: stagger in on load ---------- */

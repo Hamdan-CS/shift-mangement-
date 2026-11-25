@@ -29,3 +29,15 @@ test('phone: Today timeline opens full screen and closes', async ({ page }) => {
   await full.getByRole('button', { name: 'Close full screen' }).click();
   await expect(full).toHaveCount(0);
 });
+
+test('phone: a page whose file is gone (new version live) shows Reload, never a blank screen', async ({ page }) => {
+  await signIn(page, 'ali');
+  // the Pay page's file can't be loaded, like after an update removed the old version's files
+  await page.route('**/src/pages/PayPage.tsx*', (r) => r.abort());
+  await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Pay' }).click();
+  // the app reloads once to get the new version; the file is still missing, so it shows the Reload card
+  const card = page.getByRole('alert');
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await expect(card.getByRole('button', { name: 'Reload' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+});
