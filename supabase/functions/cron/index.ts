@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
     if (!b.user_id) return json(400, { message: 'user_id is required.' });
     const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date ?? '') ? b.date! : t.date;
     const week = mondayOf(date), ref = `test-${Date.now()}`;
-    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: MAILER });
+    return json(200, { daily: await daily(s, date, b.user_id, ref), weekly: await staffWeekly(s, week, addDays(week, 6), b.user_id, ref), email: MAILER, gmail_user: GMAIL_USER.replace(/^(.).*(@.*)$/, '$1…$2'), app_password_length: GMAIL_PASS.length });
   }
   const done: Record<string, number | string> = {};
   try {
