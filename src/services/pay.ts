@@ -5,7 +5,7 @@
  */
 import { supabase, demoAuth } from '@/integrations/supabase/client';
 import type { Profile, Role } from '@/types';
-import { DEMO_PROFILES, DEMO_SETTINGS, demoEntries } from './demo';
+import { DEMO_PROFILES, DEMO_SETTINGS, demoEntries, demoSession } from './demo';
 
 export interface PayRow {
   user_id: string; full_name: string; job_title: string | null; role: Role;
@@ -40,7 +40,7 @@ function demoDays(from: string, to: string): PayDay[] {
     const k = `${e.user_id}:${day}`;
     const d = out.get(k) ?? { user_id: e.user_id, day, first_in: e.clock_in, last_out: e.clock_out, minutes: 0, break_minutes: 0, entries: 0, methods: e.method, corrected: false, open: false, shift_start: null, shift_end: null, late: false, approved_by: null as string | null };
     if (e.edited_by_name) d.approved_by = d.approved_by && !d.approved_by.includes(e.edited_by_name) ? `${d.approved_by}, ${e.edited_by_name}` : e.edited_by_name;
-    d.minutes += Math.round(mins); d.entries++; d.corrected ||= e.edited; d.open ||= !e.clock_out;
+    d.minutes += Math.round(mins); d.break_minutes += e.break_minutes; d.entries++; d.corrected ||= e.edited; d.open ||= !e.clock_out;
     if (e.clock_in < d.first_in) d.first_in = e.clock_in;
     d.last_out = d.open ? null : e.clock_out && (!d.last_out || e.clock_out > d.last_out) ? e.clock_out : d.last_out;
     out.set(k, d);
@@ -83,15 +83,21 @@ export function deductionAmount(d: Deduction, gross: number, from: string, to: s
 
 /* ---------------- pay ---------------- */
 
+/** Demo mode copies the database rule: staff only see their own hours and pay. */
+function demoOwnOnly<T extends { user_id: string }>(rows: T[]): T[] {
+  const me = demoSession.get();
+  return me && me.role === 'employee' ? rows.filter((r) => r.user_id === me.id) : rows;
+}
+
 export async function fetchPayReport(from: string, to: string): Promise<PayRow[]> {
-  if (demoAuth) return demoReport(from, to);
+  if (demoAuth) return demoOwnOnly(demoReport(from, to));
   const { data, error } = await supabase.rpc('pay_report', { p_from: from, p_to: to });
   if (error) throw error;
   return ((data ?? []) as PayRow[]).map((r) => ({ ...r, rate: r.rate === null ? null : num(r.rate), gross: num(r.gross), deductions: num(r.deductions), net: num(r.net), overtime_after_hours: num(r.overtime_after_hours), overtime_multiplier: num(r.overtime_multiplier) }));
 }
 
 export async function fetchPayDays(from: string, to: string): Promise<PayDay[]> {
-  if (demoAuth) return demoDays(from, to);
+  if (demoAuth) return demoOwnOnly(demoDays(from, to));
   const { data, error } = await supabase.rpc('pay_days', { p_from: from, p_to: to });
   if (error) throw error;
   return (data ?? []) as PayDay[];

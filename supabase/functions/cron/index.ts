@@ -127,7 +127,8 @@ async function people() {
 function managersTo(ps: Row[], s: Settings) {
   return [...ps.filter((p) => p.role !== 'employee').map((p) => p.notify_email ?? ''), ...(s.report_recipients ?? [])];
 }
-const moneyF = (s: Settings) => (n: number) => new Intl.NumberFormat(s.currency === 'PLN' ? 'pl-PL' : 'en-GB', { style: 'currency', currency: s.currency }).format(n);
+/** "1 234,50 zł" (pl-PL leaves 4-digit amounts ungrouped unless told to group always) */
+const moneyF = (s: Settings) => (n: number) => new Intl.NumberFormat(s.currency === 'PLN' ? 'pl-PL' : 'en-GB', { style: 'currency', currency: s.currency, useGrouping: 'always' } as Intl.NumberFormatOptions).format(n);
 
 /* ---------------- jobs ---------------- */
 function describe(n: Row, tz: string): { subject: string; text: string; path: string; label: string } {

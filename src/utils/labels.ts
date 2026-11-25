@@ -36,7 +36,9 @@ const MONEY_LOCALE: Record<string, string> = { PLN: 'pl-PL', EUR: 'de-DE', GBP: 
 /** Money in the company currency, e.g. formatMoney(1212, 'PLN') → "1 212,00 zł". */
 export function formatMoney(amount: number, currency = 'PLN'): string {
   try {
-    return new Intl.NumberFormat(MONEY_LOCALE[currency] ?? 'en-US', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    // Polish style "1 234,50 zł": pl-PL leaves 4-digit amounts ungrouped by default, so group always
+    const opts = { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' } as Intl.NumberFormatOptions;
+    return new Intl.NumberFormat(MONEY_LOCALE[currency] ?? 'en-US', opts).format(amount).replace(/ /g, ' ');
   } catch {
     return `${amount.toFixed(2)} ${currency}`;
   }

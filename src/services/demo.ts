@@ -6,13 +6,34 @@ import type { Profile, Settings, TimeEntry } from '@/types';
  */
 const base = { avatar_url: null, notify_email: null, email_daily: true, email_weekly: true, schedule_view: 'week' as const, overtime_after_hours: 40, overtime_multiplier: 1.5, active: true, created_at: '2026-11-01T08:00:00Z' };
 
-export const DEMO_PROFILES: Profile[] = [
+/**
+ * VITE_DEMO_SEED=cookiery: an 8-person café team for the marketing guide
+ * (filled with two weeks of hours by services/demoSeed.ts). Otherwise the
+ * small default team the tests use.
+ */
+export const COOKIERY_DEMO = import.meta.env.VITE_DEMO_SEED === 'cookiery';
+
+const COOKIERY_PROFILES: Profile[] = [
+  { ...base, id: 'demo-owner', username: 'owner', full_name: 'Marek Kowalski', role: 'owner', job_title: 'Owner', hourly_rate: null },
+  { ...base, id: 'demo-manager', username: 'kasia', full_name: 'Katarzyna Wiśniewska', role: 'manager', job_title: 'Shift Lead', hourly_rate: 40 },
+  { ...base, id: 'demo-jakub', username: 'jakub', full_name: 'Jakub Zieliński', role: 'employee', job_title: 'Barista', hourly_rate: 34 },
+  { ...base, id: 'demo-magda', username: 'magda', full_name: 'Magdalena Kamińska', role: 'employee', job_title: 'Barista', hourly_rate: 33 },
+  { ...base, id: 'demo-anna', username: 'anna', full_name: 'Anna Lewandowska', role: 'employee', job_title: 'Kitchen', hourly_rate: 35 },
+  { ...base, id: 'demo-michal', username: 'michal', full_name: 'Michał Szymański', role: 'employee', job_title: 'Kitchen', hourly_rate: 35 },
+  { ...base, id: 'demo-piotr', username: 'piotr', full_name: 'Piotr Wójcik', role: 'employee', job_title: 'Cashier', hourly_rate: 31 },
+  { ...base, id: 'demo-zofia', username: 'zofia', full_name: 'Zofia Dąbrowska', role: 'employee', job_title: 'Cashier', hourly_rate: 30 },
+  { ...base, id: 'demo-pawel', username: 'pawel', full_name: 'Paweł Kozłowski', role: 'employee', job_title: 'Shift Lead', hourly_rate: 38 },
+];
+
+const DEFAULT_PROFILES: Profile[] = [
   { ...base, id: 'demo-owner', username: 'owner', full_name: 'Sara Mansour', role: 'owner', job_title: 'Owner', hourly_rate: null },
   { ...base, id: 'demo-manager', username: 'manager', full_name: 'Omar Haddad', role: 'manager', job_title: 'Shift manager', hourly_rate: 45 },
   { ...base, id: 'demo-ali', username: 'ali', full_name: 'Ali Hassan', role: 'employee', job_title: 'Cashier', hourly_rate: 30 },
   { ...base, id: 'demo-lina', username: 'lina', full_name: 'Lina Farah', role: 'employee', job_title: 'Kitchen', hourly_rate: 32 },
   { ...base, id: 'demo-yusuf', username: 'yusuf', full_name: 'Yusuf Karim', role: 'employee', job_title: 'Front desk', hourly_rate: 28 },
 ];
+
+export const DEMO_PROFILES: Profile[] = COOKIERY_DEMO ? COOKIERY_PROFILES : DEFAULT_PROFILES;
 
 export const DEMO_SETTINGS: Settings = {
   id: 1,

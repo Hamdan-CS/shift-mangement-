@@ -47,3 +47,11 @@ playwright/.cache/
 
 # Safe template with no real values (overrides the .env* line above)
 !.env.example
+
+# marketing guide outputs (rebuild with marketing/*.cjs)
+marketing/shots/
+marketing/check/
+marketing/fonts/
+marketing/*.pdf
+marketing/*.png
+.playwright-cli/

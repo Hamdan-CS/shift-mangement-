@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ShiftClock for Cookiery PL</title>
+<style>
+  @font-face { font-family: 'Geist'; src: url('fonts/geist-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: 'Geist'; src: url('fonts/geist-latin-ext-wght-normal.woff2') format('woff2'); font-weight: 100 900; unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  :root {
+    --bg: #f4f5f7; --surface: #fff; --border: #ebecef; --text: #0f1115; --text-2: #565c69; --text-3: #8b909b;
+    --accent: #2f5bea; --accent-soft: #e9eefd; --green: #1f9d55; --green-soft: #e6f6ec; --red: #e0383e; --red-soft: #fdecec; --amber: #b7791f; --amber-soft: #fdf3e1;
+  }
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--text); font-family: 'Geist', system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* one A4 page = 182mm × 267mm inside the margins */
+  .page { width: 182mm; height: 266mm; position: relative; overflow: hidden; break-after: page; display: flex; flex-direction: column; }
+  .page:last-child { break-after: auto; }
+  .kicker { font-size: 10pt; font-weight: 600; color: var(--accent); letter-spacing: .02em; margin: 0 0 2mm; }
+  h1 { font-size: 30pt; line-height: 1.05; letter-spacing: -0.035em; margin: 0; font-weight: 650; }
+  h2 { font-size: 22pt; line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 3mm; font-weight: 650; }
+  h3 { font-size: 12.5pt; letter-spacing: -0.01em; margin: 0 0 1.5mm; font-weight: 600; }
+  p.lead { font-size: 12pt; line-height: 1.45; color: var(--text-2); margin: 0 0 5mm; max-width: 150mm; }
+  ul.points { list-style: none; padding: 0; margin: 0; display: grid; gap: 2.6mm; }
+  ul.points li { position: relative; padding-left: 7mm; font-size: 11pt; line-height: 1.4; color: var(--text); }
+  ul.points li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 3.4mm; height: 3.4mm; border-radius: 50%; background: var(--accent-soft); box-shadow: inset 0 0 0 1.2mm var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .stage { background: var(--bg); border-radius: 5mm; padding: 5mm; }
+  .shot { position: relative; border-radius: 3mm; overflow: hidden; box-shadow: 0 1mm 4mm rgba(15, 17, 21, .10), 0 0 0 .25mm rgba(15, 17, 21, .06); background: #fff; line-height: 0; }
+  .shot img { width: 100%; display: block; }
+  .cap { font-size: 9pt; color: var(--text-3); margin-top: 2mm; }
+  .co { position: absolute; width: 7mm; height: 7mm; margin: -3.5mm 0 0 -3.5mm; border-radius: 50%; background: var(--accent); color: #fff; font-size: 9.5pt; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 0 1mm #fff, 0 1mm 3mm rgba(0,0,0,.25); line-height: 1; }
+  .legend { display: grid; gap: 2mm; margin-top: 4mm; }
+  .legend div { display: flex; gap: 3mm; align-items: flex-start; font-size: 10.5pt; line-height: 1.35; }
+  .legend b.n { flex: none; width: 6mm; height: 6mm; border-radius: 50%; background: var(--accent); color: #fff; font-size: 9pt; display: grid; place-items: center; }
+  .spacer { flex: 1; }
+  .fill { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .fill .shot { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); }
+  .im { position: relative; }
+  .fill .shot::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 14mm; background: linear-gradient(to bottom, rgba(255,255,255,0), #f4f5f7); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; align-items: center; margin-top: 5mm; }
+  .pair .legend { margin-top: 0; }
+  .foot-note { font-size: 9pt; color: var(--text-3); }
+  .chip { display: inline-flex; align-items: center; gap: 2mm; padding: 1.6mm 3.4mm; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: 9.5pt; font-weight: 600; }
+  .big { font-size: 34pt; font-weight: 650; letter-spacing: -0.04em; line-height: 1; }
+
+  /* cover */
+  .cover { background: linear-gradient(180deg, #f4f5f7 0%, #f4f5f7 62%, #fff 62%); border-radius: 6mm; padding: 12mm 10mm 0; }
+  .brand { display: flex; align-items: center; gap: 3mm; font-weight: 650; font-size: 13pt; margin-bottom: 16mm; }
+  .brand img { width: 10mm; height: 10mm; }
+  .brand small { display: block; font-size: 9pt; font-weight: 400; color: var(--text-3); }
+  .cover h1 { font-size: 40pt; }
+  .cover h1 span { color: var(--accent); }
+  .cover p.lead { font-size: 14pt; margin: 6mm 0 7mm; }
+  .chips { display: flex; gap: 2.5mm; flex-wrap: wrap; margin-bottom: 10mm; }
+
+  /* problem → fix */
+  .vs { display: grid; grid-template-columns: 1fr 10mm 1fr; align-items: stretch; gap: 0; margin-top: 4mm; }
+  .vs .col { border-radius: 5mm; padding: 9mm 7mm; }
+  .vs .before { background: var(--bg); }
+  .vs .after { background: var(--accent); color: #fff; }
+  .vs .arrow { display: grid; place-items: center; font-size: 18pt; color: var(--text-3); }
+  .vs h3 { font-size: 13pt; margin-bottom: 8mm; }
+  .vs .before h3 { color: var(--text-2); }
+  .vs ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12mm; }
+  .vs li { font-size: 13pt; line-height: 1.35; display: flex; gap: 3.4mm; }
+  .vs li i { font-style: normal; flex: none; width: 6mm; height: 6mm; border-radius: 50%; display: grid; place-items: center; font-size: 9pt; font-weight: 700; }
+  .vs .before li i { background: var(--red-soft); color: var(--red); }
+  .vs .after li i { background: rgba(255,255,255,.2); color: #fff; }
+
+  /* a normal day */
+  .day { display: grid; gap: 0; margin-top: 2mm; }
+  .step { display: grid; grid-template-columns: 22mm 8mm 1fr; align-items: start; min-height: 33mm; }
+  .step .t { font-size: 14pt; font-weight: 650; letter-spacing: -0.02em; padding-top: .6mm; }
+  .step .t small { display: block; font-size: 8.5pt; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
+  .step .rail { position: relative; height: 100%; }
+  .step .rail::before { content: ''; position: absolute; left: 3.5mm; top: 0; bottom: 0; width: .6mm; background: var(--border); }
+  .step:first-child .rail::before { top: 3mm; }
+  .step:last-child .rail::before { bottom: auto; height: 3mm; }
+  .step .rail i { position: absolute; left: 1mm; top: 1.6mm; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1.4mm var(--accent); }
+  .step .b h3 { margin-bottom: .8mm; }
+  .step .b p { margin: 0; font-size: 11pt; color: var(--text-2); line-height: 1.4; }
+
+  /* staff page tiles */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 5mm; }
+  .tile { background: var(--bg); border-radius: 4mm; padding: 3mm; }
+  .tile b { display: block; font-size: 10pt; margin: 2.4mm 1mm .4mm; }
+  .tile span { display: block; font-size: 9pt; color: var(--text-2); margin: 0 1mm; line-height: 1.35; }
+
+  /* emails page */
+  .mail-table { width: 100%; border-collapse: collapse; font-size: 9.6pt; margin-top: 3mm; }
+  .mail-table th { text-align: left; font-weight: 500; color: var(--text-3); font-size: 8.6pt; padding: 1.6mm 2mm; border-bottom: .3mm solid var(--border); }
+  .mail-table td { padding: 2mm; border-bottom: .3mm solid var(--border); vertical-align: top; line-height: 1.3; }
+  .mail-table td:first-child { font-weight: 600; white-space: nowrap; }
+  .mail-table td.when { white-space: nowrap; color: var(--accent); font-weight: 600; }
+  .callout { border-radius: 4mm; background: var(--green-soft); color: #14653a; padding: 3.4mm 4.5mm; font-size: 11pt; font-weight: 600; display: flex; gap: 3mm; align-items: center; }
+  .callout i { font-style: normal; width: 7mm; height: 7mm; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 10pt; flex: none; }
+  .mails { display: grid; grid-template-columns: 1.15fr 1fr; gap: 4mm; align-items: start; }
+  .mails .stack { display: grid; gap: 4mm; }
+
+  /* safe and fair */
+  .safe { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 4mm; }
+  .safe .card { background: var(--bg); border-radius: 5mm; padding: 6mm; }
+  .safe .ic { width: 11mm; height: 11mm; border-radius: 3.4mm; background: #fff; display: grid; place-items: center; margin-bottom: 4mm; color: var(--accent); }
+  .safe p { margin: 0; font-size: 10.5pt; color: var(--text-2); line-height: 1.4; }
+
+  /* phones */
+  .phones { display: flex; justify-content: center; gap: 12mm; margin-top: 4mm; }
+  .phone { width: 62mm; border-radius: 9mm; background: #0f1115; padding: 2.6mm; box-shadow: 0 3mm 9mm rgba(0,0,0,.18); }
+  .phone .scr { border-radius: 6.6mm; overflow: hidden; position: relative; line-height: 0; }
+  .phone .scr img { width: 100%; display: block; }
+  .phone .notch { position: absolute; top: 1.6mm; left: 50%; transform: translateX(-50%); width: 18mm; height: 4.6mm; border-radius: 3mm; background: #0f1115; }
+  .phone + .cap { text-align: center; }
+  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 7mm; }
+  .how div { background: var(--bg); border-radius: 4mm; padding: 4mm; font-size: 10pt; line-height: 1.35; color: var(--text-2); }
+  .how b { display: block; color: var(--text); font-size: 10.5pt; margin-bottom: 1mm; }
+  .how .n { display: inline-grid; place-items: center; width: 6mm; height: 6mm; border-radius: 50%; background: var(--accent); color: #fff; font-size: 9pt; font-weight: 700; margin-bottom: 2mm; }
+
+  /* checklist */
+  .check { display: grid; grid-template-columns: 1fr 1fr; gap: 3.4mm 6mm; margin-top: 4mm; }
+  .check div { display: flex; gap: 3.4mm; align-items: flex-start; background: var(--bg); border-radius: 4mm; padding: 4mm; }
+  .check .box { flex: none; width: 6mm; height: 6mm; border-radius: 1.6mm; border: .5mm solid var(--accent); background: #fff; margin-top: .3mm; }
+  .check b { display: block; font-size: 11pt; margin-bottom: .6mm; }
+  .check span { font-size: 9.6pt; color: var(--text-2); line-height: 1.35; }
+
+  /* last page */
+  .end { background: var(--accent); color: #fff; border-radius: 6mm; padding: 16mm 12mm; flex: 1; display: flex; flex-direction: column; }
+  .end h1 { font-size: 36pt; color: #fff; }
+  .end p { font-size: 13pt; line-height: 1.45; color: rgba(255,255,255,.85); max-width: 140mm; margin: 6mm 0 0; }
+  .contact { margin-top: auto; background: #fff; color: var(--text); border-radius: 5mm; padding: 8mm; display: grid; gap: 4mm; }
+  .contact div { display: grid; grid-template-columns: 38mm 1fr; font-size: 13pt; }
+  .contact span { color: var(--text-3); font-size: 11pt; }
+  .contact b { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- 1 · cover -->
+<section class="page">
+  <div class="cover">
+    <div class="brand"><img src="../public/favicon.svg" alt=""><div>ShiftClock<small>for Cookiery PL</small></div></div>
+    <p class="kicker">Staff hours · schedules · pay</p>
+    <h1>ShiftClock for<br><span>Cookiery PL</span></h1>
+    <p class="lead">Know who's working, how long, and what it costs, without paper timesheets.</p>
+    <div class="chips"><span class="chip">Works on any phone</span><span class="chip">Pay in złoty</span><span class="chip">Automatic emails</span><span class="chip">Excel reports</span></div>
+    <div class="shot"><img src="shots/owner-home.png" alt="The owner's home screen"></div>
+  </div>
+  <div class="spacer"></div>
+  <p class="foot-note">The screens in this guide use example staff and hours for a café called Cookiery PL.</p>
+</section>
+
+<!-- 2 · problem → fix -->
+<section class="page">
+  <p class="kicker">Why</p>
+  <h2>From paper and chats to one simple app</h2>
+  <p class="lead">Most cafés keep hours on paper and plan shifts in WhatsApp. It works, until it doesn't.</p>
+  <div class="vs">
+    <div class="col before">
+      <h3>Today</h3>
+      <ul>
+        <li><i>✕</i>Paper timesheets that get lost or filled in later</li>
+        <li><i>✕</i>Shifts planned in a group chat, easy to miss</li>
+        <li><i>✕</i>Counting hours by hand at the end of the month</li>
+        <li><i>✕</i>Arguments about who worked how long</li>
+        <li><i>✕</i>No idea what staff cost until payday</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="col after">
+      <h3>With ShiftClock</h3>
+      <ul>
+        <li><i>✓</i>Staff clock in and out on their phone</li>
+        <li><i>✓</i>Everyone sees their shifts in one place</li>
+        <li><i>✓</i>Hours and pay add up by themselves</li>
+        <li><i>✓</i>Every change is recorded, with who approved it</li>
+        <li><i>✓</i>Staff costs on your home screen, any day</li>
+      </ul>
+    </div>
+  </div>
+  <div class="how" style="margin-top:8mm">
+    <div><b>For your staff</b>One tap to start and finish. Their shifts, hours and pay on their phone.</div>
+    <div><b>For you</b>Who's in, what it costs, and requests to approve, in one place.</div>
+    <div><b>For your accountant</b>An Excel file every night and every Sunday.</div>
+  </div>
+</section>
+
+<!-- 3 · a normal day -->
+<section class="page">
+  <p class="kicker">How it works</p>
+  <h2>A normal day in your café</h2>
+  <p class="lead">Nobody fills in anything. The app keeps track while everyone works.</p>
+  <div class="row" style="grid-template-columns: 1.05fr 1fr; align-items: start;">
+    <div class="day">
+      <div class="step"><div class="t">07:00<small>morning</small></div><div class="rail"><i></i></div><div class="b"><h3>Staff arrive</h3><p>Phones out, nothing to sign.</p></div></div>
+      <div class="step"><div class="t">07:01</div><div class="rail"><i></i></div><div class="b"><h3>Scan the QR at the counter</h3><p>One scan and they're clocked in.</p></div></div>
+      <div class="step"><div class="t">All day</div><div class="rail"><i></i></div><div class="b"><h3>They work, you see it</h3><p>Who's in, who's late, who's next.</p></div></div>
+      <div class="step"><div class="t">15:00</div><div class="rail"><i></i></div><div class="b"><h3>Tap Finish</h3><p>Hours for the day are saved.</p></div></div>
+      <div class="step"><div class="t">23:00<small>night</small></div><div class="rail"><i></i></div><div class="b"><h3>Everyone gets an email</h3><p>Their hours and what they earned.</p></div></div>
+      <div class="step"><div class="t">23:15</div><div class="rail"><i></i></div><div class="b"><h3>You get your report</h3><p>The whole team, with the Excel file.</p></div></div>
+    </div>
+    <div>
+      <div class="stage"><div class="shot"><img src="shots/kiosk.png" alt="QR screen at the counter"></div></div>
+      <p class="cap">An old tablet at the counter shows the code. It changes every 30 seconds.</p>
+      <div class="stage" style="margin-top:6mm"><div class="shot"><img src="shots/email-staff-daily.png" alt="Staff daily email"></div></div>
+      <p class="cap">At night, everyone gets their hours by email.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · for your staff -->
+<section class="page">
+  <p class="kicker">For your staff · on their phone</p>
+  <h2>Everything they need, in their pocket</h2>
+  <div class="stage"><div class="shot"><img src="shots/emp-home.png" alt="Employee home with a running shift">
+    <span class="co" style="left:40%;top:37%">1</span><span class="co" style="left:19%;top:30%">2</span><span class="co" style="left:23%;top:45.5%">3</span>
+  </div></div>
+  <div class="legend">
+    <div><b class="n">1</b>Start and finish with one tap, or by scanning the QR</div>
+    <div><b class="n">2</b>Hours this week, always up to date</div>
+    <div><b class="n">3</b>What they've earned so far, in złoty</div>
+  </div>
+  <div class="tiles">
+    <div class="tile"><div class="shot"><img src="shots/emp-week.png" alt=""></div><b>Plan their week</b><span>Pick shifts and send them to you.</span></div>
+    <div class="tile"><div class="shot"><img src="shots/emp-leave.png" alt=""></div><b>Ask for leave</b><span>Holiday or sick day, in a few taps.</span></div>
+    <div class="tile"><div class="shot"><img src="shots/emp-correction.png" alt=""></div><b>Fix a wrong time</b><span>Forgot to clock out? Ask you to fix it.</span></div>
+  </div>
+</section>
+
+<!-- 5 · today -->
+<section class="page">
+  <p class="kicker">Today</p>
+  <h2>Your whole café at one glance</h2>
+  <p class="lead">Open the app and see who's working, who's late and who's off.</p>
+  <div class="stage"><div class="shot"><div class="im"><img src="shots/today-timeline.png" alt="Today's schedule">
+    <span class="co" style="left:3%;top:26.4%">1</span><span class="co" style="left:37.5%;top:31.5%">2</span><span class="co" style="left:47.3%;top:59%">3</span>
+  </div></div></div>
+  <div class="legend">
+    <div><b class="n">1</b>Working, coming in, late and off, counted for you</div>
+    <div><b class="n">2</b>The red line is now. Blue shows hours already worked</div>
+    <div><b class="n">3</b>Late? You see it straight away, in red</div>
+  </div>
+  <div class="stage fill" style="margin-top:4mm;padding:4mm"><div class="shot"><img src="shots/today-list-crop.png" alt="Today as a list"></div></div>
+  <p class="cap">Prefer a list? One tap shows everyone grouped: working, late, coming in, off.</p>
+</section>
+
+<!-- 6 · weekly schedules -->
+<section class="page">
+  <p class="kicker">Schedules</p>
+  <h2>The week plans itself</h2>
+  <ul class="points" style="margin-bottom:5mm">
+    <li>Staff pick their shifts for next week on their phone</li>
+    <li>You or your shift lead check the week and lock it</li>
+    <li>Today's view fills itself in from the plan</li>
+    <li>A reminder goes out if someone forgets to plan</li>
+  </ul>
+  <div class="stage"><div class="shot"><div class="im"><img src="shots/week-schedule.png" alt="The team's week">
+    <span class="co" style="left:84.5%;top:15.2%">1</span><span class="co" style="left:15%;top:40.6%">2</span>
+  </div></div></div>
+  <div class="pair">
+    <div class="legend">
+      <div><b class="n">1</b>Lock the week when it's ready. You can still change it</div>
+      <div><b class="n">2</b>Locked: staff can't change it any more</div>
+    </div>
+    <div><div class="shot"><img src="shots/team-month-crop.png" alt="The month"></div><p class="cap">The month: hours and people for every day.</p></div>
+  </div>
+</section>
+
+<!-- 7 · approvals -->
+<section class="page">
+  <p class="kicker">Approvals</p>
+  <h2>Requests come to you. One tap to decide.</h2>
+  <ul class="points" style="margin-bottom:5mm">
+    <li>Leave and time fixes land in one list, oldest first</li>
+    <li>See what was clocked, what they ask for, and why</li>
+    <li>Approve or decline in one tap, with a note if you like</li>
+    <li>The decision is saved with your name</li>
+  </ul>
+  <div class="stage"><div class="shot"><img src="shots/approvals-drawer.png" alt="An approval request">
+    <span class="co" style="left:84%;top:21%">1</span><span class="co" style="left:67.5%;top:35%">2</span><span class="co" style="left:91%;top:94.5%">3</span>
+  </div></div>
+  <div class="legend">
+    <div><b class="n">1</b>Clocked time next to the time they ask for</div>
+    <div><b class="n">2</b>Their reason, in their words</div>
+    <div><b class="n">3</b>Approve, and the hours and pay update by themselves</div>
+  </div>
+  <div class="stage fill" style="margin-top:4mm"><div class="shot"><img src="shots/owner-bell-crop.png" alt="Notifications"></div></div>
+  <p class="cap">The bell and an email tell you as soon as someone asks.</p>
+</section>
+
+<!-- 8 · pay -->
+<section class="page">
+  <p class="kicker">Staff pay</p>
+  <h2>Wages worked out for you, in złoty</h2>
+  <ul class="points" style="margin-bottom:5mm">
+    <li>Each person's hourly rate, set once</li>
+    <li>Overtime added automatically, by your rule</li>
+    <li>Deductions taken off, like a uniform</li>
+    <li>Gross and net for everyone, for any week or month</li>
+  </ul>
+  <div class="stage fill"><div class="shot"><div class="im"><img src="shots/payroll.png" alt="Payroll">
+    <span class="co" style="left:3%;top:32.9%">1</span><span class="co" style="left:72.5%;top:61.7%">2</span><span class="co" style="left:92%;top:11.2%">3</span>
+  </div></div></div>
+  <div class="pair">
+    <div class="legend">
+      <div><b class="n">1</b>Net to pay this week, for the whole team</div>
+      <div><b class="n">2</b>A deduction, already taken off</div>
+      <div><b class="n">3</b>One tap for the Excel file</div>
+    </div>
+    <div><div class="shot"><img src="shots/person.png" alt="One employee"></div><p class="cap">Each person: rate, overtime, deductions and their month.</p></div>
+  </div>
+</section>
+
+<!-- 9 · automatic emails -->
+<section class="page">
+  <p class="kicker">Automatic emails</p>
+  <h2>You don't need to do anything</h2>
+  <div class="callout"><i>✓</i>These emails are sent automatically. Nobody has to press a button.</div>
+  <table class="mail-table">
+    <tr><th>Email</th><th>Who gets it</th><th>When</th><th>What's inside</th></tr>
+    <tr><td>Daily summary</td><td>Each person who worked</td><td class="when">Every night 23:00</td><td>Clock in and out, hours, earned</td></tr>
+    <tr><td>Weekly summary</td><td>Each person who worked</td><td class="when">Sunday 23:30</td><td>Hours per day, gross and net pay</td></tr>
+    <tr><td>Daily report</td><td>You, your managers</td><td class="when">Every night 23:15</td><td>The whole team, <b>with the Excel file</b></td></tr>
+    <tr><td>Weekly report</td><td>You, your managers</td><td class="when">Sunday 23:30</td><td>The week's pay, <b>with the Excel file</b></td></tr>
+    <tr><td>Approval needed</td><td>You, your managers</td><td class="when">Within minutes</td><td>Someone asked for leave or a time fix</td></tr>
+    <tr><td>Request answered</td><td>The employee</td><td class="when">Within minutes</td><td>Approved or declined, with your note</td></tr>
+    <tr><td>Schedule reminder</td><td>Staff who haven't planned</td><td class="when">Deadline day 12:00</td><td>Please plan next week</td></tr>
+  </table>
+  <p class="foot-note" style="margin:2.4mm 0 4mm">Want your accountant to get the reports too? Add their email once. Times can be changed.</p>
+  <div class="mails">
+    <div class="shot"><img src="shots/email-owner-daily.png" alt="Owner daily report email"></div>
+    <div class="stack">
+      <div class="shot"><img src="shots/email-staff-daily.png" alt="Staff daily summary email"></div>
+      <div class="shot"><img src="shots/email-approval-needed.png" alt="Approval needed email"></div>
+      <div class="shot"><img src="shots/email-schedule-reminder.png" alt="Schedule reminder email"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · excel -->
+<section class="page">
+  <p class="kicker">Excel reports</p>
+  <h2>Any dates, one click, one Excel file</h2>
+  <div class="pair" style="margin:0 0 4mm;grid-template-columns:1fr 1.1fr">
+    <ul class="points">
+      <li>Pick this week, last month or any dates</li>
+      <li>Download in one click, or get it by email each night and Sunday</li>
+      <li>Ready for your accountant: totals, every day, leave and fixes</li>
+    </ul>
+    <div class="shot"><img src="shots/reports.png" alt="Reports"></div>
+  </div>
+  <div class="stage" style="padding:4mm"><div class="shot"><img src="shots/excel-summary.png" alt="Excel summary sheet"></div></div>
+  <p class="cap">Summary: hours, overtime, gross, deductions and net for each person.</p>
+  <div class="stage fill" style="padding:4mm;margin-top:3mm"><div class="shot"><img src="shots/excel-daily.png" alt="Excel daily detail sheet"></div></div>
+  <p class="cap">Daily detail: every day, every clock-in, against the planned shift.</p>
+</section>
+
+<!-- 11 · safe and fair -->
+<section class="page">
+  <p class="kicker">Trust</p>
+  <h2>Safe and fair for everyone</h2>
+  <p class="lead">Clear rules, so there's nothing to argue about.</p>
+  <div class="safe">
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>Staff can't change their own hours</h3><p>They ask for a fix. You or a manager decide.</p></div>
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div><h3>Every change is recorded</h3><p>Each fix shows who approved it and when.</p></div>
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg></div><h3>Pay stays private</h3><p>Staff see only their own hours and pay, never anyone else's.</p></div>
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M20 20h.01M17 20v.01"/></svg></div><h3>No clocking in from home</h3><p>The QR changes every 30 seconds, so a photo of it stops working. You can also switch off the phone button, so the QR is the only way in.</p></div>
+  </div>
+  <div class="stage" style="margin-top:6mm"><div class="shot"><img src="shots/locations-crop.png" alt="QR settings"><span class="co" style="left:15%;top:51%">1</span></div></div>
+  <div class="legend"><div><b class="n">1</b>Choose "QR only" and staff must be at the counter to clock in</div></div>
+</section>
+
+<!-- 12 · any phone -->
+<section class="page">
+  <p class="kicker">Works on any phone</p>
+  <h2>Nothing to download</h2>
+  <p class="lead">No app store. Staff open a link once and add it to their home screen. It opens like any other app.</p>
+  <div class="phones">
+    <div><div class="phone"><div class="scr"><img src="shots/phone-home.png" alt="Phone: home with the clock"><span class="notch"></span></div></div><p class="cap" style="text-align:center">Their shift, one tap to finish</p></div>
+    <div><div class="phone"><div class="scr"><img src="shots/phone-today.png" alt="Phone: today's team"><span class="notch"></span></div></div><p class="cap" style="text-align:center">Who's in today</p></div>
+  </div>
+  <div class="how">
+    <div><span class="n">1</span><b>Open the link</b>Sent by you, on WhatsApp or email.</div>
+    <div><span class="n">2</span><b>Add to home screen</b>From the browser's share or menu button.</div>
+    <div><span class="n">3</span><b>Sign in once</b>With the username and password you give them.</div>
+  </div>
+</section>
+
+<!-- 13 · getting started -->
+<section class="page">
+  <p class="kicker">Getting started</p>
+  <h2>What to share so it's ready for your café</h2>
+  <p class="lead">Send these, and the app is set up with your team before day one.</p>
+  <div class="check">
+    <div><span class="box"></span><span><b>Your staff list</b>Name, role, hourly rate and email for each person</span></div>
+    <div><span class="box"></span><span><b>Opening hours</b>When your working day starts and ends</span></div>
+    <div><span class="box"></span><span><b>Pay period</b>How often you pay staff, weekly or monthly. Reports work for any dates</span></div>
+    <div><span class="box"></span><span><b>Overtime rule</b>For example: after 40 hours a week, at 1.5×</span></div>
+    <div><span class="box"></span><span><b>Deductions</b>Anything taken off pay, like uniforms or meals</span></div>
+    <div><span class="box"></span><span><b>Who can approve</b>You, and any shift leads or managers</span></div>
+    <div><span class="box"></span><span><b>Schedule deadline</b>When staff must plan next week, for example Thursday 18:00</span></div>
+    <div><span class="box"></span><span><b>A tablet at the counter</b>Optional, to show the QR code</span></div>
+  </div>
+  <div class="stage fill" style="margin-top:6mm"><div class="shot"><img src="shots/settings.png" alt="Settings"></div></div>
+  <p class="cap">All of it lives in Settings, so you can change it any time.</p>
+</section>
+
+<!-- 14 · contact -->
+<section class="page">
+  <div class="end">
+    <p class="kicker" style="color:rgba(255,255,255,.75)">ShiftClock</p>
+    <h1>Want this for<br>Cookiery PL?</h1>
+    <p>Send me a message. I'll set it up with your team, your hours and your pay rules, and show you around.</p>
+    <div class="contact">
+      <div><span>Name</span><b>[MY NAME]</b></div>
+      <div><span>Phone / WhatsApp</span><b>[PHONE / WHATSAPP]</b></div>
+      <div><span>Email</span><b>[EMAIL]</b></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

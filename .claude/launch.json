@@ -22,6 +22,21 @@
       "env": {
         "VITE_DEMO_AUTH": "1"
       }
+    },
+    {
+      "name": "shiftclock-cookiery",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5176",
+        "--strictPort"
+      ],
+      "port": 5176,
+      "env": {
+        "VITE_DEMO_AUTH": "1",
+        "VITE_DEMO_SEED": "cookiery"
+      }
     }
   ]
 }

@@ -104,7 +104,7 @@ export function SettingsPage() {
           </div>
         </WBox>
 
-        <WBox title="Emails" meta="Sent from Gmail: needs GMAIL_USER and GMAIL_APP_PASSWORD in Supabase (see HANDOVER.md)" className="set-wide">
+        <WBox title="Emails" meta="Sent automatically at the times below." className="set-wide">
           <div className="grid gap-4">
             <label className="loc-toggle">
               <span><b>Send emails</b><small>Daily and weekly reports, reminders, approvals. In-app notifications always work.</small></span>
