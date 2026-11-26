@@ -11,6 +11,7 @@ import { usePeriod, type PeriodKind } from '@/components/pay/PeriodPicker';
 import { formatHours, formatMoney } from '@/utils/labels';
 import { notify } from '@/utils/notify';
 import { cn } from '@/utils/cn';
+import { dayEarned } from '@/utils/pay';
 import type { Profile } from '@/types';
 
 type Group = ReportConfig['group'];
@@ -67,7 +68,8 @@ export function ReportsPage() {
       const b = map.get(keyOf(d.day));
       if (!b) continue;
       b.minutes += d.minutes;
-      b.cost += ((rate.get(d.user_id)?.hourly_rate ?? 0) * d.minutes) / 60;
+      const p = rate.get(d.user_id);
+      b.cost += dayEarned(d, p?.hourly_rate ?? 0, p?.overtime_multiplier ?? 1.5);
     }
     return [...map.values()];
   }, [report, days, group, who, period.from, period.to, rate]);

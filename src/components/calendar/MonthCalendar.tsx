@@ -9,6 +9,7 @@ import { fetchShiftsRange, hm, toMin } from '@/services/schedules';
 import { fetchLeaveFor } from '@/services/requests';
 import { formatHours, formatMoney } from '@/utils/labels';
 import { cn } from '@/utils/cn';
+import { dayEarned } from '@/utils/pay';
 import { clockTime, dayKey } from '@/utils/tz';
 import type { LeaveRequest, ScheduleShift } from '@/types';
 
@@ -115,7 +116,9 @@ export function PersonMonth({ userId, rate, initialMonth, onMonth }: { userId: s
             <div><dt>Planned</dt><dd className="tnum">{ps.length ? ps.map((s) => `${hm(s.start_time)}–${hm(s.end_time)}`).join(', ') : leaveOn(pick) ? 'On leave' : 'Off'}</dd></div>
             <div><dt>Clocked</dt><dd className="tnum">{p ? `${clockTime(p.first_in, tz)}–${p.last_out ? clockTime(p.last_out, tz) : 'now'}` : '—'}</dd></div>
             <div><dt>Hours</dt><dd className="tnum">{p ? formatHours(p.minutes) : '0h 00m'}</dd></div>
-            <div><dt>Earned</dt><dd className="tnum">{money(((rate ?? 0) * (p?.minutes ?? 0)) / 60)}</dd></div>
+            <div><dt>Earned</dt><dd className="tnum">{money(p ? dayEarned(p, rate, data?.pay?.overtime_multiplier ?? 1.5) : 0)}</dd></div>
+            {p?.overtime_minutes ? <div><dt>Overtime</dt><dd className="tnum">{formatHours(p.overtime_minutes)}</dd></div> : null}
+            {p?.grace_minutes ? <div><dt>Late, still paid</dt><dd className="tnum">{p.grace_minutes} min</dd></div> : null}
             {p?.break_minutes ? <div><dt>Break</dt><dd className="tnum">{p.break_minutes} min</dd></div> : null}
             {p?.approved_by ? <div><dt>Approved by</dt><dd>{p.approved_by}</dd></div> : null}
           </dl>

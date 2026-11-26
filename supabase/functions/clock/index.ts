@@ -1,16 +1,31 @@
 // ShiftClock · Edge Function `clock` (PLAN.md section 7).
 //
-// POST { action: 'token',  loc }                 → current rotating code (managers / owner, kiosk screen)
+// POST { action: 'token',  loc }                 → today's code (managers / owner, kiosk screen)
 // POST { action: 'static', loc }                 → printed code, if the location allows it (managers / owner)
 // POST { action: 'scan',   loc, t, lat?, lng?, accuracy? } → clock the signed-in person in or out
 //
-// Codes are HMAC-SHA256(location.qr_secret, "<loc>:<30-second window>") and are
-// valid for 60 s; printed codes use "<loc>:static". The secret never leaves the
-// server. QR time entries are written with the service role, so the app can't
+// Codes are HMAC-SHA256(location.qr_secret, "<loc>:day:<YYYY-MM-DD>"): one code per
+// working day. The day changes at settings.day_start (06:00 by default), so a night
+// shift (21:00–04:00) clocks in and out with the same code; yesterday's code still
+// works for 2 hours after the change. Printed codes use "<loc>:static". The secret
+// never leaves the server. QR time entries are written with the service role, so the app can't
 // fake a scan through the REST API (migration 006).
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
-const PERIOD = 30; // seconds per rotating code
+const GRACE = 2 * 3600; // yesterday's code still works this long after the day changes
+
+/** The working day (changes at `dayStart`, minutes after midnight) and when the next one starts. */
+function workDay(nowSec: number, tz: string, dayStartMin: number) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(nowSec * 1000)).map((x) => [x.type, x.value]));
+  const mins = Number(p.hour) * 60 + Number(p.minute);
+  const shift = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const date = `${p.year}-${p.month}-${p.day}`;
+  const key = mins < dayStartMin ? shift(date, -1) : date;
+  const untilNext = (mins < dayStartMin ? dayStartMin - mins : 1440 - mins + dayStartMin) * 60 - Number(p.second);
+  const sinceStart = 86400 - untilNext;
+  return { key, prev: shift(key, -1), nextAt: nowSec + untilNext, sinceStart };
+}
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -66,19 +81,22 @@ Deno.serve(async (req) => {
   const loc = String(body.loc ?? '');
   if (!UUID.test(loc)) return fail(400, 'bad_request', 'This QR code is not a ShiftClock code.');
 
-  const [{ data: profile }, { data: location }] = await Promise.all([
+  const [{ data: profile }, { data: location }, { data: settings }] = await Promise.all([
     admin.from('profiles').select('id, full_name, role, active').eq('id', who.user.id).maybeSingle(),
     admin.from('locations').select('id, name, qr_secret, lat, lng, radius_m, allow_static, active').eq('id', loc).maybeSingle(),
+    admin.from('settings').select('timezone, day_start').eq('id', 1).maybeSingle(),
   ]);
   if (!profile || !profile.active) return fail(403, 'not_member', 'Your account is not active. Ask the owner.');
   if (!location || !location.active) return fail(404, 'no_location', 'This workplace code is not in use any more.');
   const isManager = profile.role === 'owner' || profile.role === 'manager';
   const now = Math.floor(Date.now() / 1000);
-  const win = Math.floor(now / PERIOD);
+  const [dh, dm] = String(settings?.day_start ?? '06:00').split(':').map(Number);
+  const day = workDay(now, settings?.timezone ?? 'Europe/Warsaw', (dh || 0) * 60 + (dm || 0));
 
   if (body.action === 'token') {
     if (!isManager) return fail(403, 'not_allowed', 'Only a manager can show the clock-in screen.');
-    return json(200, { token: await sign(location.qr_secret, `${loc}:${win}`), expires_at: (win + 1) * PERIOD, period: PERIOD, server_time: now, name: location.name });
+    // `period` = how long after `expires_at` this code still works
+    return json(200, { token: await sign(location.qr_secret, `${loc}:day:${day.key}`), expires_at: day.nextAt, period: GRACE, server_time: now, name: location.name, daily: true });
   }
 
   if (body.action === 'static') {
@@ -89,11 +107,11 @@ Deno.serve(async (req) => {
 
   if (body.action !== 'scan') return fail(400, 'bad_request', 'Unknown action.');
 
-  // 1. the code: this window or the one before (valid 60 s), or the printed one
+  // 1. the code: today's, yesterday's for 2 hours after the day changed, or the printed one
   const t = String(body.t ?? '');
   const valid =
-    same(t, await sign(location.qr_secret, `${loc}:${win}`)) ||
-    same(t, await sign(location.qr_secret, `${loc}:${win - 1}`)) ||
+    same(t, await sign(location.qr_secret, `${loc}:day:${day.key}`)) ||
+    (day.sinceStart < GRACE && same(t, await sign(location.qr_secret, `${loc}:day:${day.prev}`))) ||
     (location.allow_static && same(t, await sign(location.qr_secret, `${loc}:static`)));
   if (!t || !valid) return fail(410, 'expired', 'This code has expired. Scan the code on the screen again.');
 

@@ -6,6 +6,7 @@
 import { supabase, demoAuth } from '@/integrations/supabase/client';
 import type { Profile, Role } from '@/types';
 import { DEMO_PROFILES, DEMO_SETTINGS, demoEntries, demoSession } from './demo';
+import { zoned } from '@/utils/tz';
 
 export interface PayRow {
   user_id: string; full_name: string; job_title: string | null; role: Role;
@@ -19,6 +20,10 @@ export interface PayDay {
   entries: number; methods: string; corrected: boolean; open: boolean; shift_start: string | null; shift_end: string | null; late: boolean;
   /** Names of whoever added or approved hours that day (null = clocked by the person). */
   approved_by?: string | null;
+  /** Late by 30 min or less: those minutes are paid (already inside `minutes`). */
+  grace_minutes?: number;
+  /** Minutes worked after the planned shift end, paid as overtime. */
+  overtime_minutes?: number;
 }
 
 export interface Deduction {
@@ -45,6 +50,24 @@ function demoDays(from: string, to: string): PayDay[] {
     d.last_out = d.open ? null : e.clock_out && (!d.last_out || e.clock_out > d.last_out) ? e.clock_out : d.last_out;
     out.set(k, d);
   }
+  // same rules as the database (migration 018): late ≤ 30 min paid from the shift start, time after the shift end is overtime
+  let shifts: { user_id: string; date: string; start_time: string; end_time: string }[] = [];
+  try { shifts = JSON.parse(localStorage.getItem('shiftclock-demo-shifts') || '[]'); } catch { /* none */ }
+  const tz = DEMO_SETTINGS.timezone;
+  for (const d of out.values()) {
+    const mine = shifts.filter((s) => s.user_id === d.user_id && s.date === d.day);
+    if (!mine.length) continue;
+    const st = mine.map((s) => s.start_time.slice(0, 5)).sort()[0], en = mine.map((s) => s.end_time.slice(0, 5)).sort().slice(-1)[0];
+    d.shift_start = `${st}:00`; d.shift_end = `${en}:00`;
+    const startTs = zoned(d.day, st, tz).getTime();
+    const endTs = zoned(d.day, en, tz).getTime() + (en <= st ? 86_400_000 : 0);
+    const fi = Date.parse(d.first_in);
+    d.late = fi > startTs + 10 * 60_000;
+    d.grace_minutes = fi > startTs && fi <= startTs + 30 * 60_000 ? Math.round((fi - startTs) / 60_000) : 0;
+    d.minutes += d.grace_minutes;
+    const lo = d.last_out ? Date.parse(d.last_out) : Date.now();
+    d.overtime_minutes = Math.min(d.minutes, Math.max(0, Math.round((lo - Math.max(endTs, fi)) / 60_000)));
+  }
   return [...out.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
 function demoReport(from: string, to: string): PayRow[] {
@@ -52,8 +75,9 @@ function demoReport(from: string, to: string): PayRow[] {
   return DEMO_PROFILES.map((p) => {
     const mine = days.filter((d) => d.user_id === p.id);
     const weeks = new Map<string, number>();
-    for (const d of mine) { const dt = new Date(`${d.day}T12:00:00Z`); dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7)); const k = dt.toISOString().slice(0, 10); weeks.set(k, (weeks.get(k) ?? 0) + d.minutes); }
-    let reg = 0, ot = 0;
+    let ot = mine.reduce((s, d) => s + (d.overtime_minutes ?? 0), 0);
+    for (const d of mine) { const dt = new Date(`${d.day}T12:00:00Z`); dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7)); const k = dt.toISOString().slice(0, 10); weeks.set(k, (weeks.get(k) ?? 0) + d.minutes - (d.overtime_minutes ?? 0)); }
+    let reg = 0;
     for (const m of weeks.values()) { reg += Math.min(m, p.overtime_after_hours * 60); ot += Math.max(0, m - p.overtime_after_hours * 60); }
     const rate = p.hourly_rate ?? 0;
     const gross = Math.round((rate * reg / 60 + rate * p.overtime_multiplier * ot / 60) * 100) / 100;

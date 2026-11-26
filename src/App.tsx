@@ -52,7 +52,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
             {/* full-screen pages, outside the app shell */}
-            <Route path="/kiosk/:locationId" element={<RoleRoute allowed={['owner', 'manager']}><PageErrorBoundary resetKey="KioskPage"><Suspense fallback={null}><KioskPage /></Suspense></PageErrorBoundary></RoleRoute>} />
+            <Route path="/kiosk/:locationId" element={<RoleRoute allowed={['owner', 'manager']}><ClockProvider><PageErrorBoundary resetKey="KioskPage"><Suspense fallback={null}><KioskPage /></Suspense></PageErrorBoundary></ClockProvider></RoleRoute>} />
             <Route path="/clock" element={<RoleRoute><PageErrorBoundary resetKey="ClockScanPage"><Suspense fallback={null}><ClockScanPage /></Suspense></PageErrorBoundary></RoleRoute>} />
             <Route element={<RoleRoute><ClockProvider><AppShell /></ClockProvider></RoleRoute>}>
               <Route index element={<DashboardPage />} />

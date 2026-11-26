@@ -103,7 +103,7 @@ export function LocationsPage() {
                 <WChip tone={l.active ? 'ok' : 'default'}>{l.active ? 'In use' : 'Off'}</WChip>
               </div>
               <div className="flex flex-wrap gap-2">
-                <WChip tone="accent" dot={false}>Rotating code every 30 s</WChip>
+                <WChip tone="accent" dot={false}>New code every day</WChip>
                 {l.allow_static && <WChip tone="warn" dot={false}>Printed code allowed</WChip>}
               </div>
               <div className="loc-acts">

@@ -11,6 +11,7 @@ import { formatHours, formatMoney } from '@/utils/labels';
 import { notify } from '@/utils/notify';
 import { EmailMeButton } from '@/components/shared/EmailMeButton';
 import { clockTime } from '@/utils/tz';
+import { dayEarned } from '@/utils/pay';
 
 /**
  * "/pay": hours, gross, deductions and net for a period, plus a Copy button
@@ -87,10 +88,11 @@ export function PayPage() {
                 <div className="rq-main">
                   <b>{new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</b>
                   <small className="tnum">{clockTime(d.first_in, tz)} – {d.last_out ? clockTime(d.last_out, tz) : 'now'}{d.break_minutes ? ` · break ${d.break_minutes}m` : ''}{d.approved_by ? ` · approved by ${d.approved_by}` : d.corrected ? ' · corrected' : ''}</small>
+                  {(d.overtime_minutes || d.grace_minutes) ? <small className="tnum">{d.overtime_minutes ? <span className="text-accent">Overtime {formatHours(d.overtime_minutes)}</span> : null}{d.overtime_minutes && d.grace_minutes ? ' · ' : ''}{d.grace_minutes ? `Late ${d.grace_minutes} min, still paid` : ''}</small> : null}
                 </div>
                 <div className="rq-side">
                   <b className="tnum text-[16px] lg:text-[13.5px]">{formatHours(d.minutes)}</b>
-                  <small className="tnum text-[13px] text-ink-3 lg:text-[12px]">{money(((pay?.rate ?? 0) * d.minutes) / 60)}</small>
+                  <small className="tnum text-[13px] text-ink-3 lg:text-[12px]">{money(dayEarned(d, pay?.rate ?? 0, pay?.overtime_multiplier ?? 1.5))}</small>
                 </div>
               </li>
             ))}

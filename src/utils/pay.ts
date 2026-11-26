@@ -28,3 +28,10 @@ export function weekGross(minutes: number, rate: number | null, overtimeAfterHou
   const r = rate ?? 0;
   return { regular, overtime, gross: Math.round((regular * r + overtime * r * multiplier) * 100) / 100 };
 }
+
+/** One day's pay: minutes after the planned shift end at the overtime rate, the rest at the normal rate. */
+export function dayEarned(d: { minutes: number; overtime_minutes?: number }, rate: number | null, multiplier = 1.5): number {
+  const ot = Math.min(d.minutes, d.overtime_minutes ?? 0);
+  const r = rate ?? 0;
+  return (r * (d.minutes - ot)) / 60 + (r * multiplier * ot) / 60;
+}

@@ -121,7 +121,7 @@ async function send(s: Settings, job: string, ref: string, to: string[], subject
 
 /* ---------------- data ---------------- */
 async function people() {
-  const { data } = await admin.from('profiles').select('id, full_name, role, active, notify_email, hourly_rate, email_daily, email_weekly').eq('active', true);
+  const { data } = await admin.from('profiles').select('id, full_name, role, active, notify_email, hourly_rate, overtime_multiplier, email_daily, email_weekly').eq('active', true);
   return (data ?? []) as Row[];
 }
 function managersTo(ps: Row[], s: Settings) {
@@ -129,6 +129,17 @@ function managersTo(ps: Row[], s: Settings) {
 }
 /** "1 234,50 zł" (pl-PL leaves 4-digit amounts ungrouped unless told to group always) */
 const moneyF = (s: Settings) => (n: number) => new Intl.NumberFormat(s.currency === 'PLN' ? 'pl-PL' : 'en-GB', { style: 'currency', currency: s.currency, useGrouping: 'always' } as unknown as Intl.NumberFormatOptions).format(n);
+
+/** One day's pay: time after the planned shift end at the overtime rate (migration 018). */
+const dayEarned = (d: Row, rate: unknown, mult: unknown) => {
+  const r = Number(rate ?? 0), m = Number(mult ?? 1.5), ot = Math.min(Number(d.minutes), Number(d.overtime_minutes ?? 0));
+  return (r * (d.minutes - ot)) / 60 + (r * m * ot) / 60;
+};
+/** Recipients already emailed for this job + ref (sent, skipped or failed), so nobody gets it twice. */
+async function alreadySent(job: string, ref: string): Promise<Set<string>> {
+  const { data } = await admin.from('email_log').select('recipient').eq('job', job).eq('ref', ref);
+  return new Set(((data ?? []) as Row[]).map((r) => String(r.recipient).toLowerCase()));
+}
 
 /* ---------------- jobs ---------------- */
 function describe(n: Row, tz: string): { subject: string; text: string; path: string; label: string } {
@@ -164,34 +175,47 @@ async function instant(s: Settings) {
   return n;
 }
 
+/**
+ * Daily summary for `date`. Sent at the daily time to everyone who has finished;
+ * anyone still working then gets it as soon as they clock out (the next tick,
+ * also after midnight). Each person once per day.
+ */
 async function daily(s: Settings, date: string, only?: string, ref = date) {
-  const [{ data: days }, ps] = await Promise.all([admin.rpc('pay_days', { p_from: date, p_to: date }), people()]);
+  const [{ data: days }, ps, sent] = await Promise.all([admin.rpc('pay_days', { p_from: date, p_to: date }), people(), only ? Promise.resolve(new Set<string>()) : alreadySent('daily', ref)]);
   const money = moneyF(s);
   let n = 0;
   for (const d of (days ?? []) as Row[]) {
     const p = ps.find((x) => x.id === d.user_id);
     if (!p?.notify_email || p.email_daily === false || (only && p.id !== only)) continue;
-    const earned = (Number(p.hourly_rate ?? 0) * d.minutes) / 60;
-    const inner = table(['', ''], [['Clock in', hm(d.first_in, s.timezone)], ['Clock out', d.last_out ? hm(d.last_out, s.timezone) : 'still working'], ['Break', `${d.break_minutes} min`], ['Hours', `<b>${hours(d.minutes)}</b>`], ['Earned today', `<b>${money(earned)}</b>`]], [1]);
+    if (d.open || sent.has(String(p.notify_email).toLowerCase())) continue; // still working, or already emailed
+    const earned = dayEarned(d, p.hourly_rate, p.overtime_multiplier);
+    const inner = table(['', ''], [
+      ['Clock in', hm(d.first_in, s.timezone)], ['Clock out', hm(d.last_out, s.timezone)], ['Break', `${d.break_minutes} min`],
+      ['Hours', `<b>${hours(d.minutes)}</b>`],
+      ...(d.overtime_minutes ? [['Overtime (after your shift)', hours(d.overtime_minutes)]] : []),
+      ...(d.grace_minutes ? [['Late, still paid', `${d.grace_minutes} min`]] : []),
+      ['Earned today', `<b>${money(earned)}</b>`],
+    ], [1]);
     n += await send(s, 'daily', ref, [p.notify_email], `Your day: ${hours(d.minutes)}`, page(`Your day, ${longDay(date)}`, `Here is today at ${esc(s.company_name)}. Something wrong? Ask for a correction.`, inner, { href: `${APP}/history`, label: 'Request a correction' }));
   }
   return n;
 }
 
 async function staffWeekly(s: Settings, from: string, to: string, only?: string, ref = from) {
-  const [{ data: rep }, { data: days }, ps] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to }), people()]);
+  const [{ data: rep }, { data: days }, ps, sent] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to }), people(), only ? Promise.resolve(new Set<string>()) : alreadySent('staff_weekly', ref)]);
   const money = moneyF(s);
   let n = 0;
   for (const r of (rep ?? []) as Row[]) {
     const p = ps.find((x) => x.id === r.user_id);
     if (!p?.notify_email || p.email_weekly === false || !r.worked_minutes || (only && p.id !== only)) continue;
     const mine = ((days ?? []) as Row[]).filter((d) => d.user_id === r.user_id);
+    if (mine.some((d) => d.open) || sent.has(String(p.notify_email).toLowerCase())) continue; // still working, or already emailed
     const rows: (string | number)[][] = [];
     for (let i = 0; i < 7; i++) {
       const day = addDays(from, i);
       const d = mine.find((x) => x.day === day);
       const label = new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-      rows.push(d ? [label, `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}`, hours(d.minutes), money((Number(r.rate ?? 0) * d.minutes) / 60)] : [label, '—', '—', '—']);
+      rows.push(d ? [label, `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}`, `${hours(d.minutes)}${d.overtime_minutes ? `<br><span style="color:#2f5bea;font-size:12px">+${hours(d.overtime_minutes)} overtime</span>` : ''}`, money(dayEarned(d, r.rate, r.overtime_multiplier))] : [label, '—', '—', '—']);
     }
     rows.push(['<b>Total</b>', '', `<b>${hours(r.worked_minutes)}</b>`, `<b>${money(Number(r.gross))}</b>`]);
     const sumUp = table(['', ''], [
@@ -209,13 +233,13 @@ async function staffWeekly(s: Settings, from: string, to: string, only?: string,
 /** "Email me" from the Pay page: one person's hours and pay for any period (up to 62 days). */
 async function payFor(s: Settings, p: Row, from: string, to: string, ref: string) {
   const [{ data: rep }, { data: days }] = await Promise.all([admin.rpc('pay_report', { p_from: from, p_to: to }), admin.rpc('pay_days', { p_from: from, p_to: to })]);
-  const r = ((rep ?? []) as Row[]).find((x) => x.user_id === p.id) ?? { worked_minutes: 0, overtime_minutes: 0, gross: 0, deductions: 0, net: 0, rate: p.hourly_rate };
+  const r = ((rep ?? []) as Row[]).find((x) => x.user_id === p.id) ?? { worked_minutes: 0, overtime_minutes: 0, gross: 0, deductions: 0, net: 0, rate: p.hourly_rate, overtime_multiplier: 1.5 };
   const money = moneyF(s);
   const mine = ((days ?? []) as Row[]).filter((d) => d.user_id === p.id).sort((a, b) => (a.day < b.day ? -1 : 1));
   const rows: (string | number)[][] = mine.map((d) => [
     new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }),
-    `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}${d.approved_by ? `<br><span style="color:#8b909b;font-size:12px">approved by ${esc(d.approved_by)}</span>` : ''}`,
-    hours(d.minutes), money((Number(r.rate ?? 0) * d.minutes) / 60),
+    `${hm(d.first_in, s.timezone)} – ${d.last_out ? hm(d.last_out, s.timezone) : 'now'}`,
+    `${hours(d.minutes)}${d.overtime_minutes ? `<br><span style="color:#2f5bea;font-size:12px">+${hours(d.overtime_minutes)} overtime</span>` : ''}`, money(dayEarned(d, r.rate, r.overtime_multiplier ?? p.overtime_multiplier)),
   ]);
   if (!rows.length) rows.push(['No hours in this period', '', '', '']);
   rows.push(['<b>Total</b>', '', `<b>${hours(r.worked_minutes)}</b>`, `<b>${money(Number(r.gross))}</b>`]);
@@ -331,7 +355,7 @@ Deno.serve(async (req) => {
     const asUser = createClient(url, anonKey, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } }, auth: { persistSession: false } });
     const { data: who } = await asUser.auth.getUser();
     if (!who.user) return json(401, { message: 'Sign in first.' });
-    const { data: me } = await admin.from('profiles').select('id, role, active, notify_email, full_name, hourly_rate').eq('id', who.user.id).single();
+    const { data: me } = await admin.from('profiles').select('id, role, active, notify_email, full_name, hourly_rate, overtime_multiplier').eq('id', who.user.id).single();
     // "Email me" (anyone): { job: 'me', kind: 'pay', from, to } or { job: 'me', kind: 'schedule', week }
     if (body.job === 'me') {
       if (!me?.active) return json(403, { message: 'Your account is not active.' });
@@ -376,11 +400,19 @@ Deno.serve(async (req) => {
   const done: Record<string, number | string> = {};
   try {
     done.instant = await instant(s);
-    if (t.minutes >= toMin(s.daily_email_time) && await claim('daily', t.date)) done.daily = await daily(s, t.date);
+    // daily summaries: everyone finished by the daily time, then late finishers as they clock out
+    // (yesterday too, for shifts that end after midnight)
+    if (t.minutes >= toMin(s.daily_email_time)) done.daily = await daily(s, t.date);
+    done.daily_late = await daily(s, addDays(t.date, -1));
     if (t.minutes >= toMin(s.owner_daily_time) && await claim('owner_daily', t.date)) done.owner_daily = await ownerReport(s, 'owner_daily', t.date, t.date);
     const week = mondayOf(t.date);
     if (t.dow === s.weekly_email_dow && t.minutes >= toMin(s.weekly_email_time) && await claim('owner_weekly', week)) done.owner_weekly = await ownerReport(s, 'owner_weekly', week, addDays(week, 6));
-    if (t.dow === s.weekly_email_dow && t.minutes >= toMin(s.weekly_email_time) && await claim('staff_weekly', week)) done.staff_weekly = await staffWeekly(s, week, addDays(week, 6));
+    // weekly summaries: same idea; the next morning still catches anyone who worked past midnight
+    if (t.dow === s.weekly_email_dow && t.minutes >= toMin(s.weekly_email_time)) done.staff_weekly = await staffWeekly(s, week, addDays(week, 6));
+    if (t.dow === (s.weekly_email_dow + 1) % 7 && t.minutes < 12 * 60) {
+      const prev = addDays(week, -7);
+      done.staff_weekly_late = await staffWeekly(s, prev, addDays(prev, 6));
+    }
     const next = addDays(week, 7);
     if (t.dow === s.schedule_deadline_dow) {
       const dl = toMin(s.schedule_deadline_time);

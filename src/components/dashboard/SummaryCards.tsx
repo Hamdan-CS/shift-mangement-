@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarPlus, Inbox, Loader2, Play, QrCode, ScanLine, Square, Wallet } from 'lucide-react';
 import { QrScanner } from '@/components/clock/QrScanner';
+import { fetchPayReport, type PayRow } from '@/services/pay';
 import { WAvatar, WButton, WChip, WKpis } from '@/components/app/ui';
 import { fetchTeam, subscribeNotifications } from '@/services/api';
 import { fetchApprovals, LEAVE_LABEL } from '@/services/requests';
@@ -66,6 +67,20 @@ export function MyShiftCard({ currency, rate, overtimeAfterHours, overtimeMultip
   const today = totalMinutes(clock.week, clock.todayStart, todayEnd, now);
   const week = totalMinutes(clock.week, clock.weekStart, weekEnd, now);
   const pay = weekGross(week, rate, overtimeAfterHours, overtimeMultiplier);
+  // Earned and overtime come from the database (late grace, overtime after the shift end); refreshed every minute on shift
+  const { profile } = useAuth();
+  const [server, setServer] = useState<PayRow | null>(null);
+  const tick = clock.open ? Math.floor(now.getTime() / 60_000) : 0;
+  useEffect(() => {
+    if (!profile) return;
+    let alive = true;
+    fetchPayReport(dayKey(clock.weekStart, tz), dayKey(new Date(), tz))
+      .then((r) => { if (alive) setServer(r.find((x) => x.user_id === profile.id) ?? null); })
+      .catch(() => { /* keep the estimate */ });
+    return () => { alive = false; };
+  }, [profile, clock.weekStart, clock.version, tz, tick]);
+  const earned = server ? server.gross : pay.gross;
+  const overtimeMin = server ? server.overtime_minutes : pay.overtime * 60;
   const shiftSecs = clock.open ? Math.max(0, (now.getTime() - new Date(clock.open.clock_in).getTime()) / 1000) : 0;
   const finishedToday = !clock.open && clock.week.find((e) => e.clock_out && new Date(e.clock_out) >= clock.todayStart);
 
@@ -110,8 +125,8 @@ export function MyShiftCard({ currency, rate, overtimeAfterHours, overtimeMultip
           <div className="sc-big tnum">{formatHours(week)}<small>this week</small></div>
           <WKpis items={[
             { label: 'Today', value: formatHours(today) },
-            { label: 'Earned', value: money(pay.gross, currency) },
-            { label: 'Overtime', value: formatHours(pay.overtime * 60) },
+            { label: 'Earned', value: money(earned, currency) },
+            { label: 'Overtime', value: formatHours(overtimeMin) },
           ]} />
         </div>
         <div className="flex justify-center md:order-2">

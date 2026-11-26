@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { ArrowLeft, Expand, WifiOff } from 'lucide-react';
+import { ArrowLeft, Expand, LogIn, LogOut, WifiOff } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { useNow } from '@/hooks/useNow';
 import { clockUrl, fetchKioskToken, QrError, seedDemoLocation, type KioskToken } from '@/services/qr';
-import { clockTime, shortDay } from '@/utils/tz';
+import { clockTime, minutesOfDay, shortDay } from '@/utils/tz';
 import { Brand } from '@/components/app/Brand';
+import { WAvatar } from '@/components/app/ui';
+import { useTodayBoard } from '@/hooks/useTodayBoard';
+import { hhmm } from '@/components/dashboard/statusMeta';
 
 /**
- * "/kiosk/:locationId": full-screen rotating QR for a tablet at the door
- * (PLAN.md section 7). A new code every 30 s, each valid 60 s. The screen
- * stays awake; if the network drops, the last code keeps working for a minute.
+ * "/kiosk/:locationId": full-screen QR for a tablet at the door (PLAN.md 7).
+ * One code per working day (it changes at the "working day starts" time, so a
+ * 21:00–04:00 shift uses one code). Shows who is working now, and a big
+ * message each time someone clocks in or out, so people see it worked. The
+ * screen stays awake.
  */
 export function KioskPage() {
   const { locationId = '' } = useParams();
@@ -58,8 +63,36 @@ export function KioskPage() {
   }, [load]);
 
   const serverNow = Date.now() / 1000 + skew.current;
-  const left = tok ? Math.max(0, tok.expires_at - serverNow) : 0;
-  const stale = tok ? serverNow > tok.expires_at + tok.period : false; // older than 60 s: no longer valid
+  const stale = tok ? serverNow > tok.expires_at + tok.period : false; // past its grace time: no longer valid
+  const nextAt = settings?.day_start ? settings.day_start.slice(0, 5) : '06:00';
+
+  // who is working now, and a message when someone clocks in or out
+  const board = useTodayBoard();
+  // longest on shift first; a start later than now was yesterday (night shifts)
+  const nowMin = minutesOfDay(now, tz);
+  const since = (m: number | null) => (m === null ? 0 : m > nowMin ? m - 1440 : m);
+  const working = board.rows.filter((r) => r.status === 'working').sort((a, b) => since(a.clockIn) - since(b.clockIn));
+  const [events, setEvents] = useState<{ id: string; name: string; kind: 'in' | 'out'; at: string; key: number }[]>([]);
+  const seen = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (board.loading) return;
+    const next = new Map(board.rows.map((r) => [r.person.id, r.status === 'working' ? `in:${r.clockIn}` : `out:${r.clockOut ?? ''}`]));
+    const prev = seen.current;
+    seen.current = next;
+    if (!prev) return; // first load: nothing to announce
+    const fresh: typeof events = [];
+    for (const r of board.rows) {
+      const was = prev.get(r.person.id), is = next.get(r.person.id);
+      if (!was || was === is) continue;
+      const first = r.person.full_name.split(' ')[0];
+      if (is!.startsWith('in:')) fresh.push({ id: r.person.id, name: first, kind: 'in', at: hhmm(r.clockIn), key: Date.now() + fresh.length });
+      else if (was.startsWith('in:') && r.clockOut !== null) fresh.push({ id: r.person.id, name: first, kind: 'out', at: hhmm(r.clockOut), key: Date.now() + fresh.length });
+    }
+    if (fresh.length) {
+      setEvents((e) => [...fresh, ...e].slice(0, 3));
+      for (const f of fresh) window.setTimeout(() => setEvents((e) => e.filter((x) => x.key !== f.key)), 6000);
+    }
+  }, [board.rows, board.loading]);
 
   return (
     <div className="kiosk">
@@ -77,10 +110,18 @@ export function KioskPage() {
           <p className="kiosk-time tnum">{clockTime(now, tz)}</p>
           <p className="kiosk-date">{shortDay(now, tz, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           <ol className="kiosk-steps">
-            <li><b>1</b> Open your phone camera</li>
-            <li><b>2</b> Point it at the code</li>
-            <li><b>3</b> Tap the link: you're clocked in or out</li>
+            <li><b>1</b> Open ShiftClock and tap Scan</li>
+            <li><b>2</b> Point your phone at the code</li>
+            <li><b>3</b> You're clocked in or out</li>
           </ol>
+          <section className="kiosk-now" aria-live="polite">
+            <h2><span className="dot" />Working now <b className="tnum">{board.loading ? '–' : working.length}</b></h2>
+            {working.length ? (
+              <ul>{working.slice(0, 8).map((r) => (
+                <li key={r.person.id}><WAvatar name={r.person.full_name} src={r.person.avatar_url} size={26} /><span>{r.person.full_name.split(' ')[0]}</span><small className="tnum">since {hhmm(r.clockIn)}</small></li>
+              ))}{working.length > 8 && <li className="more">+{working.length - 8}</li>}</ul>
+            ) : !board.loading ? <p>Nobody yet.</p> : null}
+          </section>
         </div>
 
         <div className="kiosk-qr-wrap">
@@ -91,10 +132,20 @@ export function KioskPage() {
           ) : (
             <div className="kiosk-msg"><span className="sc-spin" style={{ width: 36, height: 36 }} /><span>{offline ? 'Waiting for connection…' : 'Making a code…'}</span></div>
           )}
-          <div className="kiosk-bar" aria-hidden="true"><i style={{ width: `${tok ? (left / tok.period) * 100 : 0}%` }} /></div>
-          <p className="kiosk-note tnum">{offline ? <><WifiOff size={16} /> Offline · last code works for up to a minute</> : tok ? `New code in ${Math.ceil(left)} s` : ' '}</p>
+          <p className="kiosk-note tnum">{offline ? <><WifiOff size={16} /> Offline · today's code keeps working</> : tok ? `Today's code · a new one at ${nextAt}` : ' '}</p>
         </div>
       </main>
+
+      {/* big, short-lived message when someone clocks in or out */}
+      <div className="kiosk-events" aria-live="assertive">
+        {events.map((e) => (
+          <div key={e.key} className={`kiosk-event ${e.kind}`}>
+            {e.kind === 'in' ? <LogIn size={22} /> : <LogOut size={22} />}
+            <span><b>{e.name}</b> {e.kind === 'in' ? 'clocked in' : 'clocked out'}</span>
+            <span className="tnum at">{e.at}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

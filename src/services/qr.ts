@@ -67,13 +67,16 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   throw new QrError('No connection. Check your signal and try again.', 'offline');
 }
 
-export interface KioskToken { token: string; expires_at: number; period: number; server_time: number; name: string }
+/** `expires_at`: when the next code starts; `period`: how long after that this code still works. */
+export interface KioskToken { token: string; expires_at: number; period: number; server_time: number; name: string; daily?: boolean }
 
 /** Current rotating code for the kiosk screen (managers / owner). */
 export async function fetchKioskToken(loc: string): Promise<KioskToken> {
   if (demoAuth) {
-    const now = Math.floor(Date.now() / 1000), win = Math.floor(now / 30);
-    return { token: `demo-${win}`, expires_at: (win + 1) * 30, period: 30, server_time: now, name: readDemo().find((l) => l.id === loc)?.name ?? 'Workplace' };
+    // one code per working day, like the server (changes at 06:00)
+    const now = Math.floor(Date.now() / 1000);
+    const day = Math.floor((now - 6 * 3600) / 86400);
+    return { token: `demo-${day}`, expires_at: (day + 1) * 86400 + 6 * 3600, period: 7200, server_time: now, name: readDemo().find((l) => l.id === loc)?.name ?? 'Workplace', daily: true };
   }
   return invoke<KioskToken>({ action: 'token', loc });
 }
