@@ -82,8 +82,12 @@ export function ClockScanPage() {
             <p className="scan-sub">
               {state.r.result === 'out' && state.r.minutes !== undefined ? <>Shift {formatHours(state.r.minutes)} · </> : null}
               {state.r.location}
-              {state.r.repeat ? ' · already done' : ''}
             </p>
+            {state.r.repeat && (
+              <p className="scan-sub" style={{ marginTop: 8 }}>
+                You just {state.r.result === 'in' ? 'clocked in' : 'clocked out'}. To {state.r.result === 'in' ? 'clock out' : 'clock in again'}, scan again in a few seconds.
+              </p>
+            )}
           </div>
         )}
 

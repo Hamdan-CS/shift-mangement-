@@ -127,16 +127,18 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 3. Same person + same code within 2 minutes = a repeat (cameras often open
-  //    the link twice, sometimes at the same moment). Claim the code first; the
-  //    primary key makes the claim atomic, so only one request ever toggles.
-  const DUP_MS = 2 * 60 * 1000;
+  // 3. Same person + same code within 15 seconds = a repeat (cameras often open
+  //    the link twice, within a second or two). Longer than that is a real second
+  //    scan: with one code all day, the clock-out uses the same code as the
+  //    clock-in. Claim the code first; the primary key makes the claim atomic, so
+  //    only one request ever toggles.
+  const DUP_MS = 15 * 1000;
   const nowIso = new Date().toISOString();
   let claimed = false;
   const ins = await admin.from('qr_scans').insert({ user_id: profile.id, token: t, location_id: loc, result: 'pending', at: nowIso });
   if (!ins.error) claimed = true;
   else if (ins.error.code === '23505') {
-    // seen before: only reclaim it if the last use is older than 2 minutes (printed codes are reused daily)
+    // seen before (today's code, a printed code): reclaim it unless the last use was in the last 15 s
     const re = await admin.from('qr_scans').update({ result: 'pending', at: nowIso, location_id: loc })
       .eq('user_id', profile.id).eq('token', t).lt('at', new Date(Date.now() - DUP_MS).toISOString()).select('user_id');
     claimed = !re.error && (re.data?.length ?? 0) > 0;
