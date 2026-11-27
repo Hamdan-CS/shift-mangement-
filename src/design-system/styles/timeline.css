@@ -197,3 +197,16 @@
 .tl-full-pick .tl-dl { gap: 6px; }
 .tl-full-pick .tl-dl > div { padding: 7px 10px; }
 .tl-full-pick .tl-dl dd { font-size: 15px; }
+
+/* ---- overtime: time worked after the planned shift end, in red ---- */
+.tl-bar.ot {
+  min-width: 0; padding: 0 6px; margin-left: 2px;
+  background: var(--red); border: 1px solid var(--red); color: #fff;
+  border-radius: 9px; overflow: hidden;
+}
+.tl-bar.ot span { position: static; color: #fff; font-size: 12px; font-weight: 700; }
+.tl-bar.ot.live { background: repeating-linear-gradient(135deg, var(--red) 0 8px, color-mix(in srgb, var(--red) 82%, #000) 8px 16px); }
+.tl-otxt { margin-left: 6px; font-style: normal; font-size: 12px; font-weight: 700; color: var(--red); white-space: nowrap; }
+.lg.ot { background: var(--red); }
+.tl-dl > div.ot { background: var(--red-soft); }
+.tl-dl > div.ot dt, .tl-dl > div.ot dd { color: var(--red); }

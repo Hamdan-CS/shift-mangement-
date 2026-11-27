@@ -97,6 +97,10 @@ export function SettingsPage() {
               <span><b>Start / Finish button</b><small>Off = staff must scan the QR code at work.</small></span>
               <Switch checked={s.allow_button_clock} onChange={(c) => set('allow_button_clock', c)} label="Start / Finish button" />
             </label>
+            <label className="loc-toggle">
+              <span><b>Staff can edit their own times</b><small>No approval needed. The change shows as "Edited by employee", every manager gets a notification, and you can undo it in Approvals.</small></span>
+              <Switch checked={Boolean(s.staff_edit_times)} onChange={(c) => set('staff_edit_times', c)} label="Staff can edit their own times" />
+            </label>
             <Link to="/admin/locations" className="sc-cta">
               <span className="sc-cta-ic" aria-hidden="true"><QrCode size={18} /></span>
               <span className="min-w-0 flex-1"><b>Locations and QR codes</b><small>Workplaces, kiosk screen, GPS circle</small></span>

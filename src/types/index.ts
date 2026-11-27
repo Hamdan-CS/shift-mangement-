@@ -42,6 +42,8 @@ export interface Settings {
   report_recipients: string[];
   /** false = staff must scan the QR code to clock in / out (PLAN.md 13, q6). */
   allow_button_clock: boolean;
+  /** true = staff change their own clock times without approval; managers are told (migration 019). */
+  staff_edit_times?: boolean;
   /** Phase 8 emails (migration 013), company time. */
   emails_enabled: boolean;
   owner_daily_time: string;
@@ -59,7 +61,8 @@ export type NotificationType =
   | 'schedule.missing'
   | 'schedule.changed'
   | 'shift.auto_closed'
-  | 'pay.requested';
+  | 'pay.requested'
+  | 'time.self_edited';
 
 export interface Notification {
   id: string;
@@ -83,6 +86,8 @@ export interface TimeEntry {
   edited: boolean;
   /** Who added or approved this entry (a manager, the owner, or 'Auto clock-out'). */
   edited_by_name?: string | null;
+  /** Who last changed it. Same as user_id = the person edited it themselves. */
+  edited_by?: string | null;
   created_at: string;
 }
 
@@ -161,7 +166,8 @@ export interface Correction {
   old_clock_in: string | null;
   old_clock_out: string | null;
   new_clock_in: string;
-  new_clock_out: string;
+  /** null = only the clock-in changes (the shift is still running) */
+  new_clock_out: string | null;
   reason: string;
   status: RequestStatus;
   reviewed_by: string | null;

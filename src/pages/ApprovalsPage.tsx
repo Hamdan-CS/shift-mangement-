@@ -22,7 +22,10 @@ type Item =
   | { kind: 'pay'; id: string; userId: string; status: RequestStatus; created: string; decided: string | null; note: string | null; p: PayRequest };
 type Filter = 'all' | RequestKind;
 
-const mins = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 60_000;
+const mins = (a: string, b: string | null) => ((b ? Date.parse(b) : Date.now()) - Date.parse(a)) / 60_000;
+/** The person changed their own times (owner setting "Staff can edit their own times"): no approval, managers are told. */
+const selfEdit = (i: Item | null) => i?.kind === 'correction' && i.c.status === 'approved' && i.c.reviewed_by === i.c.user_id;
+const outText = (iso: string | null, tz: string) => (iso ? clockTime(iso, tz) : 'still working');
 const fmtDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /**
@@ -101,8 +104,8 @@ export function ApprovalsPage() {
     const c = i.c;
     return {
       icon: <Clock3 size={16} />,
-      title: c.entry_id ? 'Time fix' : 'Missing shift',
-      detail: `${shortDay(c.new_clock_in, tz)} · ${clockTime(c.new_clock_in, tz)}–${clockTime(c.new_clock_out, tz)}`,
+      title: selfEdit(i) ? 'Edited by employee' : c.entry_id ? 'Time fix' : 'Missing shift',
+      detail: `${shortDay(c.new_clock_in, tz)} · ${clockTime(c.new_clock_in, tz)}–${outText(c.new_clock_out, tz)}`,
     };
   };
 
@@ -148,7 +151,7 @@ export function ApprovalsPage() {
                       <span className="min-w-0"><b>{nameOf(i.userId)}</b><small>{p?.job_title ?? 'Team member'}</small></span>
                     </span>
                     <span className="ap-what"><span className="ap-ic">{s.icon}</span><span className="min-w-0"><b>{s.title}</b><small className="tnum">{s.detail}</small></span></span>
-                    <span className="ap-when">{tab === 'pending' ? relativeDate(i.created) : <WChip tone={STATUS_CHIP[i.status].tone}>{STATUS_CHIP[i.status].label}</WChip>}</span>
+                    <span className="ap-when">{tab === 'pending' ? relativeDate(i.created) : selfEdit(i) ? <WChip tone="warn">Edited by employee</WChip> : <WChip tone={STATUS_CHIP[i.status].tone}>{STATUS_CHIP[i.status].label}</WChip>}</span>
                   </button>
                   {tab === 'pending' && desktop && !ownBlocked(i) && (
                     <span className="ap-quick">
@@ -188,7 +191,8 @@ function RequestDrawer({ item, tz, name, person, reviewer, money, blocked, busy,
   useEffect(() => { if (item) { setLast(item); setNote(''); } }, [item]);
   const i = item ?? last;
   if (!i) return null;
-  const st = STATUS_CHIP[i.status];
+  const self = selfEdit(i);
+  const st = self ? { tone: 'warn' as const, label: 'Edited by employee' } : STATUS_CHIP[i.status];
 
   const footer = i.status === 'pending'
     ? (blocked
@@ -199,7 +203,7 @@ function RequestDrawer({ item, tz, name, person, reviewer, money, blocked, busy,
           <WButton onClick={() => onDecide('approved', note)} disabled={busy}>{busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />} Approve</WButton>
         </>
       ))
-    : (blocked ? undefined : <WButton tone="secondary" onClick={() => onDecide('pending')} disabled={busy}><Undo2 size={18} /> Undo decision</WButton>);
+    : (blocked ? undefined : <WButton tone="secondary" onClick={() => onDecide('pending')} disabled={busy}><Undo2 size={18} /> {self ? 'Undo the change' : 'Undo decision'}</WButton>);
 
   return (
     <BottomSheet open={item !== null} onClose={onClose} title={name} side="right" footer={footer}>
@@ -229,8 +233,8 @@ function RequestDrawer({ item, tz, name, person, reviewer, money, blocked, busy,
             </div>
             <ArrowRight size={18} className="text-ink-3" aria-hidden="true" />
             <div className="ap-tile new">
-              <small>Asks for</small>
-              <b className="tnum">{clockTime(i.c.new_clock_in, tz)} – {clockTime(i.c.new_clock_out, tz)}</b>
+              <small>{self ? 'Changed to' : 'Asks for'}</small>
+              <b className="tnum">{clockTime(i.c.new_clock_in, tz)} – {outText(i.c.new_clock_out, tz)}</b>
               <small className="tnum">{formatHours(mins(i.c.new_clock_in, i.c.new_clock_out))}
                 {i.c.old_clock_in && i.c.old_clock_out ? ` (${mins(i.c.new_clock_in, i.c.new_clock_out) >= mins(i.c.old_clock_in, i.c.old_clock_out) ? '+' : '−'}${formatHours(Math.abs(mins(i.c.new_clock_in, i.c.new_clock_out) - mins(i.c.old_clock_in, i.c.old_clock_out)))})` : ''}
               </small>
@@ -258,9 +262,10 @@ function RequestDrawer({ item, tz, name, person, reviewer, money, blocked, busy,
 
       <p className="sheet-label">Timeline</p>
       <ol className="ap-timeline">
-        <li><b>Requested</b><small>{shortDay(i.created, tz, { weekday: 'short', day: 'numeric', month: 'short' })}, {clockTime(i.created, tz)}</small></li>
+        <li><b>{self ? 'Changed by the employee' : 'Requested'}</b><small>{shortDay(i.created, tz, { weekday: 'short', day: 'numeric', month: 'short' })}, {clockTime(i.created, tz)}</small></li>
         {i.status === 'pending'
           ? <li className="now"><b>{i.kind === 'pay' ? 'Waiting for the owner' : 'Waiting for a manager'}</b><small>{relativeDate(i.created)}</small></li>
+          : self ? <li className="approved"><b>Saved at once, no approval needed</b><small>Undo puts the old times back.</small></li>
           : <li className={i.status}><b>{i.status === 'approved' ? 'Approved' : 'Declined'}{reviewer ? ` by ${reviewer}` : ''}</b><small>{i.decided ? `${shortDay(i.decided, tz, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clockTime(i.decided, tz)}` : ''}{i.note ? ` · “${i.note}”` : ''}</small></li>}
       </ol>
 

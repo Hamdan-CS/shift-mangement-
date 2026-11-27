@@ -44,7 +44,8 @@ function demoDays(from: string, to: string): PayDay[] {
     const mins = Math.max(0, ((e.clock_out ? Date.parse(e.clock_out) : Date.now()) - Date.parse(e.clock_in)) / 60000 - e.break_minutes);
     const k = `${e.user_id}:${day}`;
     const d = out.get(k) ?? { user_id: e.user_id, day, first_in: e.clock_in, last_out: e.clock_out, minutes: 0, break_minutes: 0, entries: 0, methods: e.method, corrected: false, open: false, shift_start: null, shift_end: null, late: false, approved_by: null as string | null };
-    if (e.edited_by_name) d.approved_by = d.approved_by && !d.approved_by.includes(e.edited_by_name) ? `${d.approved_by}, ${e.edited_by_name}` : e.edited_by_name;
+    const by = e.edited_by && e.edited_by === e.user_id ? 'employee' : e.edited_by_name;
+    if (by) d.approved_by = d.approved_by && !d.approved_by.includes(by) ? `${d.approved_by}, ${by}` : by;
     d.minutes += Math.round(mins); d.break_minutes += e.break_minutes; d.entries++; d.corrected ||= e.edited; d.open ||= !e.clock_out;
     if (e.clock_in < d.first_in) d.first_in = e.clock_in;
     d.last_out = d.open ? null : e.clock_out && (!d.last_out || e.clock_out > d.last_out) ? e.clock_out : d.last_out;

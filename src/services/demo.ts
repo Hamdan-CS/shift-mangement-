@@ -47,6 +47,7 @@ export const DEMO_SETTINGS: Settings = {
   day_start: '06:00',
   day_end: '24:00',
   allow_button_clock: true,
+  staff_edit_times: false,
   report_recipients: [],
   emails_enabled: true,
   owner_daily_time: '23:15',

@@ -4,13 +4,14 @@
  */
 import { supabase, demoAuth } from '@/integrations/supabase/client';
 import type { Correction, LeaveRequest, LeaveType, PayRequest, RequestStatus } from '@/types';
-import { DEMO_PROFILES, demoEntries, demoSession } from './demo';
+import { DEMO_PROFILES, demoEntries, demoSession, DEMO_SETTINGS } from './demo';
 import { demoNotifications } from './api';
 
 export class RequestError extends Error {}
 
 function requestError(e: { code?: string; message: string }): RequestError {
   if (/out_after_in/.test(e.message)) return new RequestError('The clock-out time must be after the clock-in time.');
+  if (/Pick a clock-out/.test(e.message)) return new RequestError('Pick a clock-out time too.');
   if (/max_length/.test(e.message)) return new RequestError('That is too long for one shift or one leave request.');
   if (/leave_end_after_start/.test(e.message)) return new RequestError('The last day must be on or after the first day.');
   if (/reason/.test(e.message) && e.code === '23514') return new RequestError('Please write a short reason (at least 3 letters).');
@@ -34,11 +35,12 @@ const notifyManagers = (type: 'correction.requested' | 'leave.requested', kind: 
 
 /* ---------------- employee: corrections ---------------- */
 
-export interface CorrectionInput { entryId: string | null; newIn: Date; newOut: Date; reason: string }
+/** newOut null = change only the clock-in of a shift that is still running. */
+export interface CorrectionInput { entryId: string | null; newIn: Date; newOut: Date | null; reason: string }
 
 export async function createCorrection(userId: string, input: CorrectionInput): Promise<Correction> {
-  if (input.newOut <= input.newIn) throw new RequestError('The clock-out time must be after the clock-in time.');
-  if (input.newOut.getTime() > Date.now() + 5 * 60_000) throw new RequestError("The new times can't be in the future.");
+  if (input.newOut && input.newOut <= input.newIn) throw new RequestError('The clock-out time must be after the clock-in time.');
+  if ((input.newOut ?? input.newIn).getTime() > Date.now() + 5 * 60_000) throw new RequestError("The new times can't be in the future.");
   if (input.reason.trim().length < 3) throw new RequestError('Please write a short reason (at least 3 letters).');
   if (demoAuth) {
     const all = rd<Correction>(CK);
@@ -46,15 +48,30 @@ export async function createCorrection(userId: string, input: CorrectionInput): 
     const e = input.entryId ? demoEntries.all().find((x) => x.id === input.entryId) : undefined;
     const row: Correction = {
       id: crypto.randomUUID(), user_id: userId, entry_id: input.entryId, old_clock_in: e?.clock_in ?? null, old_clock_out: e?.clock_out ?? null,
-      new_clock_in: input.newIn.toISOString(), new_clock_out: input.newOut.toISOString(), reason: input.reason.trim(), status: 'pending',
+      new_clock_in: input.newIn.toISOString(), new_clock_out: input.newOut?.toISOString() ?? null, reason: input.reason.trim(), status: 'pending',
       reviewed_by: null, reviewed_at: null, review_note: null, applied_entry_id: null, created_at: new Date().toISOString(),
     };
+    if (DEMO_SETTINGS.staff_edit_times) {
+      // the owner lets staff edit their own times: apply now, tell the managers
+      const entries = demoEntries.all();
+      const mine = e ? entries.find((x) => x.id === e.id) : undefined;
+      if (mine) { mine.clock_in = row.new_clock_in; if (row.new_clock_out) mine.clock_out = row.new_clock_out; mine.edited = true; mine.edited_by = userId; mine.edited_by_name = nameOf(userId); }
+      else if (!e) { const nid = crypto.randomUUID(); entries.unshift({ id: nid, user_id: userId, clock_in: row.new_clock_in, clock_out: row.new_clock_out, method: 'manual', location_id: null, break_minutes: 0, note: 'Added by correction', edited: true, edited_by: userId, edited_by_name: nameOf(userId), created_at: new Date().toISOString() }); row.applied_entry_id = nid; }
+      demoEntries.save(entries);
+      Object.assign(row, { status: 'approved', reviewed_by: userId, reviewed_at: new Date().toISOString() });
+      wr(CK, [row, ...all]);
+      const t = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: DEMO_SETTINGS.timezone }) : 'still working');
+      for (const p of DEMO_PROFILES.filter((x) => (x.role === 'owner' || x.role === 'manager') && x.id !== userId)) {
+        demoNotifications.add({ recipient_id: p.id, type: 'time.self_edited', payload: { kind: 'correction', request_id: row.id, employee_name: nameOf(userId), was: e ? `${t(row.old_clock_in)}–${t(row.old_clock_out)}` : 'a missing shift', now: `${t(row.new_clock_in)}–${t(row.new_clock_out)}`, reason: row.reason } });
+      }
+      return row;
+    }
     wr(CK, [row, ...all]);
     notifyManagers('correction.requested', 'correction', row.id, userId);
     return row;
   }
   const { data, error } = await supabase.from('corrections').insert({
-    user_id: userId, entry_id: input.entryId, new_clock_in: input.newIn.toISOString(), new_clock_out: input.newOut.toISOString(), reason: input.reason.trim(),
+    user_id: userId, entry_id: input.entryId, new_clock_in: input.newIn.toISOString(), new_clock_out: input.newOut?.toISOString() ?? null, reason: input.reason.trim(),
   }).select('*').single();
   if (error) throw requestError(error);
   return data as Correction;
@@ -201,10 +218,10 @@ export async function decide(kind: RequestKind, id: string, status: RequestStatu
     if (kind === 'correction') {
       const entries = demoEntries.all();
       if (status === 'approved') {
-        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.new_clock_in; e.clock_out = row.new_clock_out; e.edited = true; e.edited_by_name = reviewer?.full_name ?? null; } }
+        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.new_clock_in; if (row.new_clock_out) e.clock_out = row.new_clock_out; e.edited = true; e.edited_by = reviewer?.id ?? null; e.edited_by_name = reviewer?.full_name ?? null; } }
         else { const nid = crypto.randomUUID(); entries.unshift({ id: nid, user_id: row.user_id, clock_in: row.new_clock_in, clock_out: row.new_clock_out, method: 'manual', location_id: null, break_minutes: 0, note: 'Added by correction', edited: true, edited_by_name: reviewer?.full_name ?? null, created_at: new Date().toISOString() }); row.applied_entry_id = nid; }
       } else if (status === 'pending' && row.status === 'approved') {
-        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.old_clock_in!; e.clock_out = row.old_clock_out; } }
+        if (row.entry_id) { const e = entries.find((x) => x.id === row.entry_id); if (e) { e.clock_in = row.old_clock_in!; if (row.old_clock_out || row.new_clock_out) e.clock_out = row.old_clock_out; } }
         if (row.applied_entry_id) { const i = entries.findIndex((x) => x.id === row.applied_entry_id); if (i >= 0) entries.splice(i, 1); row.applied_entry_id = null; }
       }
       demoEntries.save(entries);

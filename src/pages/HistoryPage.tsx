@@ -4,6 +4,7 @@ import { CalendarPlus, CalendarX2, Clock3, PenLine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClock } from '@/contexts/ClockContext';
 import { useNow } from '@/hooks/useNow';
+import { useSettings } from '@/hooks/useSettings';
 import { fetchEntries } from '@/services/api';
 import { fetchMyCorrections } from '@/services/requests';
 import { CorrectionSheet } from '@/components/requests/CorrectionSheet';
@@ -25,6 +26,7 @@ export function HistoryPage() {
   const navigate = useNavigate();
   const now = useNow(clock.open ? 30_000 : 120_000);
   const tz = clock.timeZone;
+  const direct = Boolean(useSettings(Boolean(profile))?.staff_edit_times);
   const [range, setRange] = useState<Range>('week');
   const [entries, setEntries] = useState<TimeEntry[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -91,7 +93,7 @@ export function HistoryPage() {
     <>
       <WPageHeader
         title="History"
-        subtitle="Your days and clock times. Wrong time? Ask for a correction."
+        subtitle={direct ? 'Your days and clock times. Wrong time? Edit it.' : 'Your days and clock times. Wrong time? Ask for a correction.'}
         actions={<WButton tone="secondary" onClick={() => setFixing({ entry: null })}><CalendarPlus size={17} /> Add a missing shift</WButton>}
       />
 
@@ -159,21 +161,21 @@ export function HistoryPage() {
                     <span className="hx-tags">
                       {!e.clock_out && <WChip tone="ok">Working</WChip>}
                       <WChip tone="default" dot={false}>{METHOD[e.method]}</WChip>
-                      {e.edited && <WChip tone="warn" dot={false}>{e.edited_by_name ? `Approved by ${e.edited_by_name}` : 'Edited'}</WChip>}
+                      {e.edited && <WChip tone="warn" dot={false}>{e.edited_by && e.edited_by === e.user_id ? 'Edited by you' : e.edited_by_name ? `Approved by ${e.edited_by_name}` : 'Edited'}</WChip>}
                       {fixOf.get(e.id)?.status === 'pending' && <WChip tone="accent">Fix pending</WChip>}
-                      {fixOf.get(e.id)?.status === 'approved' && <WChip tone="ok">Fixed</WChip>}
+                      {fixOf.get(e.id)?.status === 'approved' && fixOf.get(e.id)?.reviewed_by !== e.user_id && <WChip tone="ok">Fixed</WChip>}
                       {fixOf.get(e.id)?.status === 'declined' && <WChip tone="danger">Fix declined</WChip>}
                     </span>
-                    {e.clock_out && <WButton
+                    <WButton
                       tone="ghost"
                       size="sm"
                       className="hx-fix"
                       disabled={fixOf.get(e.id)?.status === 'pending'}
                       onClick={() => setFixing({ entry: e })}
-                      aria-label={`Request correction for the ${clockTime(e.clock_in, tz)} shift`}
+                      aria-label={`${direct ? (e.clock_out ? 'Edit times of' : 'Edit clock-in of') : 'Request correction for'} the ${clockTime(e.clock_in, tz)} shift`}
                     >
-                      <PenLine size={16} /> {fixOf.get(e.id)?.status === 'pending' ? 'Waiting' : 'Request correction'}
-                    </WButton>}
+                      <PenLine size={16} /> {fixOf.get(e.id)?.status === 'pending' ? 'Waiting' : direct ? (e.clock_out ? 'Edit times' : 'Edit clock-in') : 'Request correction'}
+                    </WButton>
                     {fixOf.get(e.id)?.status === 'declined' && fixOf.get(e.id)?.review_note && (
                       <p className="hx-note">Manager: “{fixOf.get(e.id)!.review_note}”</p>
                     )}
@@ -191,8 +193,12 @@ export function HistoryPage() {
           entry={fixing?.entry ?? null}
           userId={profile.id}
           tz={tz}
+          direct={direct}
           onClose={() => setFixing(null)}
-          onSent={() => { setFixing(null); setReload((n) => n + 1); notify.success('Sent to your manager. You get a notification when they decide.'); }}
+          onSent={(applied) => {
+            setFixing(null); setReload((n) => n + 1); void clock.refresh();
+            notify.success(applied ? 'Saved. Your manager has been told.' : 'Sent to your manager. You get a notification when they decide.');
+          }}
         />
       )}
     </>

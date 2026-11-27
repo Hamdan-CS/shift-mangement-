@@ -120,7 +120,7 @@ export function PersonMonth({ userId, rate, initialMonth, onMonth }: { userId: s
             {p?.overtime_minutes ? <div><dt>Overtime</dt><dd className="tnum">{formatHours(p.overtime_minutes)}</dd></div> : null}
             {p?.grace_minutes ? <div><dt>Late, still paid</dt><dd className="tnum">{p.grace_minutes} min</dd></div> : null}
             {p?.break_minutes ? <div><dt>Break</dt><dd className="tnum">{p.break_minutes} min</dd></div> : null}
-            {p?.approved_by ? <div><dt>Approved by</dt><dd>{p.approved_by}</dd></div> : null}
+            {p?.approved_by ? <div><dt>{p.approved_by === 'employee' ? 'Edited by' : 'Approved by'}</dt><dd>{p.approved_by === 'employee' ? 'Employee' : p.approved_by}</dd></div> : null}
           </dl>
         )}
       </BottomSheet>

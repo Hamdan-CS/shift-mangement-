@@ -133,8 +133,12 @@ function describe(r: BoardRow, now: number): { line: string; side: string; sideT
   const shift = r.shiftStart !== null ? `${hhmm(r.shiftStart)}–${hhmm(r.shiftEnd)}` : null;
   const worked = workedSoFar(r, now);
   switch (r.status) {
-    case 'working':
-      return { line: `In since ${hhmm(r.clockIn)}${r.shiftEnd !== null ? ` · until ${hhmm(r.shiftEnd)}` : ''}`, side: dur(worked), sideTone: 'ok' };
+    case 'working': {
+      const ot = overtimeOf(r, now);
+      return ot > 0
+        ? { line: `In since ${hhmm(r.clockIn)} · shift ended ${hhmm(r.shiftEnd)}`, side: `+${dur(ot)} overtime`, sideTone: 'bad' }
+        : { line: `In since ${hhmm(r.clockIn)}${r.shiftEnd !== null ? ` · until ${hhmm(r.shiftEnd)}` : ''}`, side: dur(worked), sideTone: 'ok' };
+    }
     case 'upcoming':
       return { line: `Starts ${hhmm(r.shiftStart)}${r.shiftStart !== null && r.shiftStart > now ? ` · in ${dur(r.shiftStart - now)}` : ''}`, side: shift ?? '' };
     case 'late':
@@ -142,7 +146,7 @@ function describe(r: BoardRow, now: number): { line: string; side: string; sideT
     case 'absent':
       return { line: `Missed ${shift ?? 'shift'}`, side: 'Absent', sideTone: 'bad' };
     case 'finished':
-      return { line: r.clockIn !== null ? `${hhmm(r.clockIn)}–${hhmm(r.clockOut)}${shift ? ` · planned ${shift}` : ''}` : `Planned ${shift ?? ''}`, side: dur(worked), sideTone: 'muted' };
+      return { line: r.clockIn !== null ? `${hhmm(r.clockIn)}–${hhmm(r.clockOut)}${shift ? ` · planned ${shift}` : ''}${overtimeOf(r, now) > 0 ? ` · +${dur(overtimeOf(r, now))} overtime` : ''}` : `Planned ${shift ?? ''}`, side: dur(worked), sideTone: 'muted' };
     case 'on_leave':
       return { line: 'On leave', side: '' };
     default:
@@ -292,12 +296,14 @@ function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick, onExp
               const s = STATUS_META[r.status];
               const has = r.shiftStart !== null && r.shiftEnd !== null;
               const workedEnd = r.clockIn !== null ? (r.clockOut ?? now) : null;
+              const ot = overtimeOf(r, now);
               return (
                 <div key={r.person.id} className={cn('tl-row', r.status === 'off' && 'off')}>
                   <button type="button" className="tl-who" onClick={() => onPick(r)}>
                     <span className={cn('tl-av', r.status)}><WAvatar name={r.person.full_name} src={r.person.avatar_url} size={22} /></span>
                     <b>{compact ? r.person.full_name.split(' ')[0] : r.person.full_name}</b>
                     <small className={cn('tl-st', r.status)}>{s.label}{whenText(r) ? ` ${whenText(r)}` : ''}{!compact && r.person.job_title ? ` · ${r.person.job_title}` : ''}</small>
+                    {ot > 0 && <em className="tl-otxt tnum">+{dur(ot)} overtime</em>}
                   </button>
                   {r.status === 'on_leave' && <span className="tl-bar leave" style={{ left: 0, right: 0 }}><span>On leave</span></span>}
                   {!has && r.clockIn !== null && (
@@ -325,6 +331,18 @@ function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick, onExp
                       <span>{hhmm(r.shiftStart)}–{hhmm(r.shiftEnd)}</span>
                     </button>
                   )}
+                  {has && ot > 0 && r.clockIn !== null && (
+                    <button
+                      type="button"
+                      className={cn('tl-bar ot', r.status === 'working' && 'live')}
+                      style={{ left: pct(Math.max(r.shiftEnd!, r.clockIn)), width: `calc(${pct(Math.max(r.shiftEnd!, r.clockIn) + ot)} - ${pct(Math.max(r.shiftEnd!, r.clockIn))})` }}
+                      onClick={() => onPick(r)}
+                      aria-label={`${r.person.full_name}: ${dur(ot)} overtime after ${hhmm(r.shiftEnd)}`}
+                      title={`${dur(ot)} overtime`}
+                    >
+                      {ot >= 25 && <span>+{dur(ot)}</span>}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -342,6 +360,7 @@ function Timeline({ rows, loading, dayStart, dayEnd, now, compact, onPick, onExp
         <span><i className="lg worked" />Worked</span>
         <span><i className="lg sched" />Planned</span>
         <span><i className="lg late" />Late</span>
+        <span><i className="lg ot" />Overtime</span>
         <span><i className="lg leave" />Leave</span>
         <span><i className="lg now" />Now</span>
       </div>
@@ -414,6 +433,7 @@ function FullTimeline({ title, rows, dayStart, dayEnd, now, onClose }: { title: 
               <div><dt>Clocked in</dt><dd className="tnum">{hhmm(pick.clockIn)}</dd></div>
               <div><dt>Clocked out</dt><dd className="tnum">{pick.clockIn !== null && pick.clockOut === null ? 'Still working' : hhmm(pick.clockOut)}</dd></div>
               <div><dt>Worked</dt><dd className="tnum">{formatHours(workedSoFar(pick, now))}</dd></div>
+              {overtimeOf(pick, now) > 0 && <div className="ot"><dt>Overtime</dt><dd className="tnum">+{formatHours(overtimeOf(pick, now))}</dd></div>}
             </dl>
           </div>
         )}
@@ -433,6 +453,15 @@ function whenText(r: BoardRow): string {
     case 'absent': return r.shiftStart !== null ? `· ${hhmm(r.shiftStart)}–${hhmm(r.shiftEnd)}` : '';
     default: return '';
   }
+}
+
+/** Minutes worked after the planned shift end (0 if none). Overtime is drawn in red. */
+function overtimeOf(r: BoardRow, now: number): number {
+  if (r.shiftStart === null || r.shiftEnd === null || r.clockIn === null || r.shiftEnd <= r.shiftStart) return 0;
+  let end = r.clockOut ?? (r.status === 'working' ? now : null);
+  if (end === null) return 0;
+  if (end < r.clockIn) end += 24 * 60; // finished after midnight
+  return Math.max(0, Math.round(end - Math.max(r.shiftEnd, r.clockIn)));
 }
 
 /** Worked part of a shift bar, clamped to the bar (early starts / late finishes). */
@@ -473,6 +502,7 @@ function ShiftSheet({ row, now, onClose }: { row: BoardRow | null; now: number; 
         <div><dt>Clocked in</dt><dd className="tnum">{hhmm(r.clockIn)}</dd></div>
         <div><dt>Clocked out</dt><dd className="tnum">{r.clockIn !== null && r.clockOut === null ? 'Still working' : hhmm(r.clockOut)}</dd></div>
         <div><dt>Worked</dt><dd className="tnum">{formatHours(worked)}</dd></div>
+        {overtimeOf(r, now) > 0 && <div className="ot"><dt>Overtime</dt><dd className="tnum">+{formatHours(overtimeOf(r, now))}</dd></div>}
       </dl>
     </BottomSheet>
   );

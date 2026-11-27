@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bell, CalendarClock, CalendarX2, CheckCircle2, Clock4, Plane, TimerOff, Wallet, XCircle } from 'lucide-react';
+import { Bell, CalendarClock, CalendarX2, CheckCircle2, Clock4, PenLine, Plane, TimerOff, Wallet, XCircle } from 'lucide-react';
 import type { Notification, NotificationType } from '@/types';
 
 /** Icon, text, destination and main-button label for each notification type. */
@@ -15,6 +15,7 @@ export const NOTIFICATION_ICONS: Record<NotificationType, ReactNode> = {
   'schedule.changed': <CalendarClock size={15} />,
   'shift.auto_closed': <TimerOff size={15} />,
   'pay.requested': <Wallet size={15} />,
+  'time.self_edited': <PenLine size={15} />,
 };
 
 export const iconFor = (n: Notification): ReactNode => NOTIFICATION_ICONS[n.type] ?? <Bell size={15} />;
@@ -40,6 +41,8 @@ export function describe(n: Notification): string {
     }
     case 'pay.requested':
       return `${str(p.employee_name, 'Someone')} asked for a new pay rate${typeof p.new_rate === 'number' || typeof p.new_rate === 'string' ? ` (${p.new_rate}/h)` : ''}`;
+    case 'time.self_edited':
+      return `${str(p.employee_name, 'Someone')} edited their clock times`;
     case 'shift.auto_closed':
       return `Your shift was closed automatically after ${typeof p.hours === 'number' ? p.hours : 'too many'} hours`;
     default:
@@ -53,6 +56,7 @@ export function destinationFor(n: Notification, isAdmin: boolean): string | null
     case 'correction.requested':
     case 'leave.requested':
     case 'pay.requested':
+    case 'time.self_edited':
       return '/admin/approvals';
     case 'request.approved':
     case 'request.declined':
@@ -77,12 +81,18 @@ export function actionFor(n: Notification): string {
     case 'schedule.missing': return 'Open schedule';
     case 'schedule.changed': return 'View shift';
     case 'shift.auto_closed': return 'Fix the time';
+    case 'time.self_edited': return 'View';
     default: return 'Open';
   }
 }
 
 /** Inline detail text (a manager's note on a decision). */
 export function detailsFor(n: Notification): string | null {
+  if (n.type === 'time.self_edited') {
+    const p = n.payload;
+    const what = `${str(p.was, '?')} → ${str(p.now, '?')}`;
+    return typeof p.reason === 'string' && p.reason && p.reason !== 'Changed by employee' ? `${what} · “${p.reason}”` : what;
+  }
   const note = n.payload.review_note;
   return typeof note === 'string' && note ? `Note: ${note}` : null;
 }

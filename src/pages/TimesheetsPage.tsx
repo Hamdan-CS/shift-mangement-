@@ -91,7 +91,7 @@ export function TimesheetsPage() {
                     <WAvatar name={p?.full_name ?? '?'} src={p?.avatar_url} size={36} />
                     <div className="rq-main">
                       <b>{p?.full_name ?? 'Unknown'}</b>
-                      <small className="tnum">{clockTime(e.clock_in, tz)} – {e.clock_out ? clockTime(e.clock_out, tz) : 'now'}{e.break_minutes ? ` · break ${e.break_minutes}m` : ''}{e.note ? ` · ${e.note}` : ''}{e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}</small>
+                      <small className="tnum">{clockTime(e.clock_in, tz)} – {e.clock_out ? clockTime(e.clock_out, tz) : 'now'}{e.break_minutes ? ` · break ${e.break_minutes}m` : ''}{e.note ? ` · ${e.note}` : ''}{e.edited_by && e.edited_by === e.user_id ? ' · edited by employee' : e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}</small>
                     </div>
                     <div className="rq-side">
                       <b className="tnum text-[16px] lg:text-[13.5px]">{formatHours(mins(e))}</b>
